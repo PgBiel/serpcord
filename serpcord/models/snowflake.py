@@ -1,7 +1,9 @@
 import datetime
+from .apimodel import JsonAPIModel
+from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
 
 
-class Snowflake:
+class Snowflake(JsonAPIModel[int]):
     """Represents Discord's Snowflakes, or unique numeric IDs which are generated based on when the object
     with that ID was created in respect to Discord's epoch (first second of 2015, as per the API Docs).
     Thus, it is possible to retrieve when any object uniquely identified by a Snowflake (which includes most common
@@ -25,6 +27,39 @@ class Snowflake:
 
     def __init__(self, value: int):
         self.value: int = value
+
+    @classmethod
+    def from_raw_data(cls, raw_data: str):
+        """Generates a Snowflake from raw Discord data, by instantiating with ``Snowflake(int(raw_data))``.
+
+        Args:
+            raw_data (:class:`str`): Raw data from Discord to be parsed into a Snowflake instance.
+
+        Returns:
+            :class:`Snowflake`: The Snowflake instance generated from the given data.
+
+        Raises:
+            :exc:`APIDataParseException`: If the given data can't be directly coverted to an :class:`int`.
+        """
+        super().from_raw_data(raw_data)
+
+    @classmethod
+    def from_json_data(cls, json_data: int):
+        """Generates a Snowflake from parsed JSON data (int), by instantiating with ``Snowflake(int(raw_data))``.
+
+        Args:
+            json_data (:class:`int`): JSON data from Discord to be parsed into a Snowflake instance.
+
+        Returns:
+            :class:`Snowflake`: The Snowflake instance generated from the given data.
+
+        Raises:
+            :exc:`APIJsonParsedTypeMismatchException`: If the given JSON data isn't an :class:`int`.
+        """
+        try:
+            return cls(int(json_data))
+        except ValueError as e:
+            raise APIJsonParsedTypeMismatchException("Snowflake data must be an int (its value).") from e
 
     @property
     def timestamp(self) -> int:

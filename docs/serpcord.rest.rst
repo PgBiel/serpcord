@@ -12,6 +12,14 @@ Subpackages
 Submodules
 ----------
 
+serpcord.rest.cdn module
+------------------------
+
+.. automodule:: serpcord.rest.cdn
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 serpcord.rest.enums module
 --------------------------
 

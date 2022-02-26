@@ -12,6 +12,14 @@ serpcord.rest.endpoint.endpoint module
    :undoc-members:
    :show-inheritance:
 
+serpcord.rest.endpoint.user module
+----------------------------------
+
+.. automodule:: serpcord.rest.endpoint.user
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
