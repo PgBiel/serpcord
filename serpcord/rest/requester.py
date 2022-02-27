@@ -2,7 +2,7 @@ import aiohttp
 import typing
 import re
 import asyncio
-from .endpoint.endpoint import Endpoint
+from .endpoint.endpoint_abc import Endpoint
 
 
 T = typing.TypeVar("T")
@@ -42,17 +42,23 @@ class Requester:
 
                 >>> assert isinstance(sample_requester, Requester)
                 >>> sample_requester.process_token("Bot XXX")
-                >>> assert sample_requester.token == "Bot XXX"
+                >>> sample_requester.token
+                'Bot XXX'
                 >>> sample_requester.process_token("Bearer XXX")
-                >>> assert sample_requester.token == "Bearer XXX"
+                >>> sample_requester.token
+                'Bearer XXX'
                 >>> sample_requester.process_token("bot XXX")
-                >>> assert sample_requester.token == "Bot XXX"
+                >>> sample_requester.token
+                'Bot XXX'
                 >>> sample_requester.process_token("beaREr XXX")
-                >>> assert sample_requester.token == "Bearer XXX"
+                >>> sample_requester.token
+                'Bearer XXX'
                 >>> sample_requester.process_token("XXX")
-                >>> assert sample_requester.token == "Bot XXX"
-                >>> other_requester = Requester("YYY", aiohttp.ClientSession())  # also applied on instantiation
-                >>> assert other_requester.token == "Bot YYY"
+                >>> sample_requester.token
+                'Bot XXX'
+                >>> other_requester = Requester("YYY", aiohttp.ClientSession(), bind_session=True)
+                >>> other_requester.token  # also applied on instantiation
+                'Bot YYY'
         """
         if token.startswith("Bot ") or token.startswith("Bearer "):
             self.token = token
@@ -67,4 +73,4 @@ class Requester:
         if self.bind_session:
             asyncio.get_event_loop().run_until_complete(self.session.close())
 
-    # def request_endpoint(self, endpoint: Endpoint[T]):
+    # def request_endpoint(self, endpoint: Endpoint[T]) :

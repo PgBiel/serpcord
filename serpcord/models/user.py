@@ -81,8 +81,8 @@ class User(JsonAPIModel[dict]):
             flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
             public_flags: UserFlags = UserFlags.NONE
     ):
-        self.id: Snowflake = userid
-        self.username: str = username
+        self.id: Snowflake = userid  #: The user's ID.
+        self.username: str = username  #: The user's username (non-unique).
         self.discriminator: str = discriminator
         self.avatar_hash: Optional[str] = avatar_hash
         self.is_bot = is_bot
@@ -126,7 +126,7 @@ class User(JsonAPIModel[dict]):
                 )
                 for k, v in json_data.items()
             ))
-        except (AttributeError, TypeError) as e:
+        except (AttributeError, TypeError, ValueError) as e:
             raise APIJsonParsedTypeMismatchException("Unexpected User JSON data received.") from e
 
     def avatar_url(self, img_format: CDNImageFormats = CDNImageFormats.PNG) -> str:

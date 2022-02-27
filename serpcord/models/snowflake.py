@@ -13,7 +13,8 @@ class Snowflake(JsonAPIModel[int]):
         Use :attr:`Snowflake.DISCORD_EPOCH` to refer to Discord's epoch timestamp (in seconds) as an int.
 
     Attributes:
-        value (int): Raw value of this Snowflake, which contains the encoded timestamp of when this object was created.
+        value (:class:`int`): Raw value of this Snowflake, which contains the encoded timestamp of when this object was
+            created.
 
     .. testsetup:: *
 

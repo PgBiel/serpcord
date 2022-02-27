@@ -13,6 +13,12 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../serpcord'))
+sys.path.append(os.path.abspath('extensions'))
+
+print(f"{sys.executable=} {sys.path=}")
+
 
 
 # -- Project information -----------------------------------------------------
@@ -32,7 +38,8 @@ release = '0.0.1'
 # ones.
 extensions = [
     "sphinx.ext.autodoc", "sphinx.ext.doctest", "sphinxcontrib.napoleon",
-    "sphinx.ext.intersphinx"
+    "sphinx.ext.intersphinx", "sphinx.ext.autosummary",
+    "attributetable"  # "autodocsumm"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -64,3 +71,14 @@ napoleon_google_docstring = True
 
 # Intersphinx settings
 intersphinx_mapping = {'python': ('https://docs.python.org/3.9', None)}
+
+# # Autodoc settings
+# autodoc_default_options = {
+#     'autosummary': True,
+# }
+
+# Autosummary settings
+# autosummary_generate = True  # Turn on sphinx.ext.autosummary
+
+# Attributetable settings
+attributetable_autodoc_hook = True

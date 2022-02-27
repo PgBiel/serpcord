@@ -1,0 +1,34 @@
+.py-attribute-table {
+    display: table;
+    border-spacing: 10px;
+}
+
+.py-attribute-table-column {
+    display: table-cell;
+    border: 0.2ex solid black;
+    padding: 1ex;
+    box-shadow: 0.5ex 0.5ex 5px gray;
+}
+
+.py-attribute-table-column > span {
+    font-weight: bold;
+}
+
+.py-attribute-table-column > ul {
+    margin: 0;
+    padding: 0;
+}
+
+.py-attribute-table-entry {
+    display: table-row;
+}
+
+.py-attribute-table-badge {
+    font-style: italic;
+    color: gray;
+    margin-right: 0.65ex;
+}
+
+.py-attribute-table-ref {
+    display: inline-block;
+}

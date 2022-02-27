@@ -35,7 +35,7 @@ class CDNImageFormats(Enum):
     def file_extension(self):
         """Returns this image format as a file extension (preceded by a dot ``.``)
 
-        Examples
+        Examples:
             .. doctest::
 
                 >>> CDNImageFormats.JPEG.value
@@ -48,3 +48,9 @@ class CDNImageFormats(Enum):
                 '.gif'
         """
         return f".{self.value}"
+
+
+class SentDataType(Enum):
+    """An :class:`~enum.Enum` listing possible types of data to be sent to the Discord API."""
+
+    APPLICATION_JSON = "application/json"
