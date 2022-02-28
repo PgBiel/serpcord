@@ -1,7 +1,7 @@
 import abc
 import typing
 import json
-from enum import Enum, EnumMeta, Flag
+from enum import Enum, EnumMeta, Flag, IntEnum, IntFlag
 from typing import TypeVar
 
 from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
@@ -89,13 +89,13 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
             :obj:`~.TSelfJsonAPIModel`: The generated instance of this JsonAPIModel subclass.
 
         Raises:
-            :exc:`APIJsonParsedTypeMismatchException`: If the JSON type received was invalid.
-                (Note that this subclasses :class:`TypeError`.)
+            :exc:`APIJsonParseException`: If the JSON received was invalid, or didn't match the expected type.
         """
         raise NotImplementedError
 
 
 class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
+    """Base class for string :class:`~enum.Enum`-based models."""
     @classmethod
     def from_json_data(cls, json_data: str):
         try:
@@ -104,7 +104,8 @@ class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
 
-class IntEnumAPIModel(JsonAPIModel[int], Enum, metaclass=_ABCEnumMeta):
+class IntEnumAPIModel(JsonAPIModel[int], IntEnum, metaclass=_ABCEnumMeta):
+    """Base class for int :class:`~enum.Enum`-based models."""
     @classmethod
     def from_json_data(cls, json_data: int):
         try:
@@ -113,7 +114,18 @@ class IntEnumAPIModel(JsonAPIModel[int], Enum, metaclass=_ABCEnumMeta):
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
 
+class IntFlagEnumAPIModel(JsonAPIModel[int], IntFlag, metaclass=_ABCEnumMeta):  # type: ignore
+    """Base class for :class:`~enum.IntFlag`-based models."""              # (type ignore necessary due to issue below:)
+    @classmethod                                                           # https://github.com/python/mypy/issues/9319
+    def from_json_data(cls, json_data: int):
+        try:
+            return cls(json_data)
+        except ValueError as e:
+            raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
+
+
 class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=_ABCEnumMeta):
+    """Base class for :class:`~enum.Flag`-based models."""
     @classmethod
     def from_json_data(cls, json_data: int):
         try:

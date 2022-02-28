@@ -17,5 +17,6 @@ API Reference
    __sphinx_autodoc_module__serpcord.rest.endpoint.endpoint_abc
    __sphinx_autodoc_module__serpcord.rest.endpoint.user
    __sphinx_autodoc_module__serpcord.rest.enums
+   __sphinx_autodoc_module__serpcord.rest.httpsentdata
    __sphinx_autodoc_module__serpcord.rest.requester
 

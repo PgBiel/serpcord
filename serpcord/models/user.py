@@ -81,8 +81,8 @@ class User(JsonAPIModel[dict]):
             flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
             public_flags: UserFlags = UserFlags.NONE
     ):
-        self.id: Snowflake = userid  #: The user's ID.
-        self.username: str = username  #: The user's username (non-unique).
+        self.id: Snowflake = userid
+        self.username: str = username
         self.discriminator: str = discriminator
         self.avatar_hash: Optional[str] = avatar_hash
         self.is_bot: bool = is_bot

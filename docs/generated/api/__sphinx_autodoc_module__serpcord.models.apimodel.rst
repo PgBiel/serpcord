@@ -19,6 +19,7 @@ models.apimodel
    APIModel
    FlagEnumAPIModel
    IntEnumAPIModel
+   IntFlagEnumAPIModel
    JsonAPIModel
    StrEnumAPIModel
    _ABCEnumMeta

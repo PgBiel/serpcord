@@ -42,11 +42,6 @@
     display: inline-block;
 }
 
-table.docutils p {
-    overflow: auto;
-    display: inline-block;
-}
-
-table.docutils td, table.docutils a {
+table.docutils p, table.docutils td, table.docutils a {
     overflow: auto;
 }

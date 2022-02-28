@@ -24,4 +24,3 @@ rest.endpoint.endpoint_abc
    PATCHEndpoint
    POSTEndpoint
    PUTEndpoint
-   __init__
