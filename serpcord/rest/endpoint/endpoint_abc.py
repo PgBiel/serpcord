@@ -43,7 +43,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         parts (List[:class:`str`]): Each part (normally separated by /) that composes the endpoint URL
             (after the base API URL).
         headers (List[:class:`str`]): Extra headers to include for this endpoint when the request is done to the API.
-        sent_data (Optional[:class:`~.HTTPSentData`]): Data to send in this endpoint (usually constructed in a
+        sent_data (Optional[:class:`aiohttp.FormData`]): Data to send in this endpoint (usually constructed in a
             subclass' ``__init__`` - defaults to ``None`` for no data).
         response (Optional[:class:`~.Response` [:obj:`~.GT`]]): Data (raw & parsed) received after a request was made
             using this Endpoint instance. This is only filled when a request is done
@@ -68,7 +68,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         self.parts: List[str] = list(parts) if parts else []
         self.headers: Dict[str, str] = dict(headers) if headers else dict()
 
-        self.sent_data: Optional[HTTPSentData] = None  # should be set by subclasses
+        self.sent_data: Optional[aiohttp.FormData] = None  # should be set by subclasses
 
         self.response: Optional[Response[GT]] = None  # will be set by Requester upon request execution
 
@@ -109,10 +109,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         raise NotImplementedError
 
     def __repr__(self):
-        method = repr(self.method)
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(method={method}, parts={parts}, headers={headers})"
+        return f"<{self.__class__.__qualname__} url={self.url}>"
 
 
 class GETEndpoint(Endpoint[GT], abc.ABC):
@@ -144,11 +141,6 @@ class GETEndpoint(Endpoint[GT], abc.ABC):
         """
         raise NotImplementedError
 
-    def __repr__(self):
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(parts={parts}, headers={headers})"
-
 
 class POSTEndpoint(Endpoint[GT], abc.ABC):
     """Abstract class that represents a POST Endpoint in the Discord API.
@@ -178,11 +170,6 @@ class POSTEndpoint(Endpoint[GT], abc.ABC):
             :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
-
-    def __repr__(self):
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(parts={parts}, headers={headers})"
 
 
 class PATCHEndpoint(Endpoint[GT], abc.ABC):
@@ -214,11 +201,6 @@ class PATCHEndpoint(Endpoint[GT], abc.ABC):
         """
         raise NotImplementedError
 
-    def __repr__(self):
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(parts={parts}, headers={headers})"
-
 
 class PUTEndpoint(Endpoint[GT], abc.ABC):
     """Abstract class that represents a PUT Endpoint in the Discord API.
@@ -249,11 +231,6 @@ class PUTEndpoint(Endpoint[GT], abc.ABC):
         """
         raise NotImplementedError
 
-    def __repr__(self):
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(parts={parts}, headers={headers})"
-
 
 class DELETEEndpoint(Endpoint[GT], abc.ABC):
     """Abstract class that represents a DELETE Endpoint in the Discord API.
@@ -283,8 +260,3 @@ class DELETEEndpoint(Endpoint[GT], abc.ABC):
             :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
-
-    def __repr__(self):
-        parts = repr(self.parts)
-        headers = repr(self.headers)
-        return f"{self.__class__.__qualname__}(parts={parts}, headers={headers})"

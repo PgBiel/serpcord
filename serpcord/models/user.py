@@ -1,5 +1,5 @@
 import typing
-from typing import Optional, Dict, Type
+from typing import Optional, Dict, Type, Mapping, Any
 
 from .apimodel import JsonAPIModel
 from .enums import Locale, UserFlags, UserPremiumType
@@ -9,7 +9,7 @@ from .snowflake import Snowflake
 from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException
 
 
-class User(JsonAPIModel[dict]):
+class User(JsonAPIModel[Mapping[str, Any]]):
     """Represents a Discord User.
 
     Attributes:
@@ -98,11 +98,12 @@ class User(JsonAPIModel[dict]):
         self.public_flags: UserFlags = public_flags
 
     @classmethod
-    def from_json_data(cls, json_data: dict):
+    def from_json_data(cls, json_data: Mapping[str, Any]):
         """Constructs a :class:`User` from received JSON data.
 
         Args:
-            json_data (:class:`dict`): The data to parse and construct a User instance with.
+            json_data (Mapping[:class:`str`, Any]): The data to parse and construct a User instance with.
+                (Usually a :class:`dict`.)
 
         Raises:
             :exc:`APIJsonParsedTypeMismatchException`: If the given data wasn't valid user data.

@@ -7,6 +7,7 @@ API Reference
 .. toctree::
    :maxdepth: 1
 
+   __sphinx_autodoc_module__serpcord.botclient
    __sphinx_autodoc_module__serpcord.exceptions.dataparseexc
    __sphinx_autodoc_module__serpcord.exceptions.serpcordexc
    __sphinx_autodoc_module__serpcord.models.apimodel
@@ -19,4 +20,5 @@ API Reference
    __sphinx_autodoc_module__serpcord.rest.enums
    __sphinx_autodoc_module__serpcord.rest.helpers
    __sphinx_autodoc_module__serpcord.rest.requester
+   __sphinx_autodoc_module__serpcord.utils.format
 

@@ -1,10 +1,12 @@
 """Endpoints related to users."""
 import typing
 import abc
-from typing import Optional, Iterable, Generic
+import io
+from typing import Optional, Iterable, Generic, Union
 
 import aiohttp
 
+from ..helpers import Response
 from ...models.user import User
 from .endpoint_abc import GETEndpoint, PATCHEndpoint
 
@@ -12,6 +14,8 @@ from .endpoint_abc import GETEndpoint, PATCHEndpoint
 class GetCurrentUserEndpoint(GETEndpoint[User]):
     """API Endpoint for retrieving the current user (i.e., the bot itself). A GET to
     ``[BASE_API_URL]/users/@me``."""
+    response: Optional[Response[User]]  #: Response object containing the bot's user (if successful).
+
     def __init__(self):
         super().__init__(("users", "@me"), None)
 
@@ -30,15 +34,27 @@ class GetCurrentUserEndpoint(GETEndpoint[User]):
         """
         return await User.from_response(response)
 
-    def __repr__(self):
-        return f"{self.__class__.__qualname__}()"
-
 
 class PatchCurrentUserEndpoint(PATCHEndpoint[User]):
     """API Endpoint for changing the current user (i.e., the bot itself). A PATCH to
-    ``[BASE_API_URL]/users/@me``."""
-    def __init__(self, *, username: Optional[str] = None, avatar: Optional[str] = None):  # TODO: Image Data type
-        super().__init__(("users", "@me"), None)
+    ``[BASE_API_URL]/users/@me``.
+
+    Args:
+        username (Optional[:class:`str`]): The bot user's new username. (``None`` to leave unchanged.)
+        avatar (Optional[Union[:class:`bytes`, :class:`io.IOBase`]]): The bot user's new avatar image.
+            (``None`` to leave unchanged.)
+    """
+    response: Optional[Response[User]]  #: Response object containing the modified user (if successful).
+
+    def __init__(self, *, username: Optional[str] = None, avatar: Optional[Union[bytes, io.IOBase]] = None):
+        super().__init__(("users", "@me"), None)  # TODO: Image Data type
+
+        self.sent_data = aiohttp.FormData()
+
+        if username is not None:
+            self.sent_data.add_field("username", username)
+        if avatar is not None:
+            self.sent_data.add_field("avatar", avatar)
 
     async def parse_response(self, response: aiohttp.ClientResponse) -> User:
         """Returns the modified user.
@@ -47,9 +63,6 @@ class PatchCurrentUserEndpoint(PATCHEndpoint[User]):
             :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
         return await User.from_response(response)
-
-    # def __repr__(self):
-    #     return f"{self.__class__.__qualname__}(username=)"
 
 
 # class GetCurrentUserGuildsEndpoint(GETEndpoint[List[Guild]])  # TODO: implement guilds
