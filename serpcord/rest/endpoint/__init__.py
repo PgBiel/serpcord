@@ -1,4 +1,4 @@
-from serpcord.rest.endpoint.endpoint_abc import (
+from .endpoint_abc import (
     Endpoint, GETEndpoint, PATCHEndpoint, POSTEndpoint, PUTEndpoint, DELETEEndpoint
 )
-from serpcord.rest.endpoint.user import GetCurrentUserEndpoint, PatchCurrentUserEndpoint
+from .user import GetCurrentUserEndpoint, PatchCurrentUserEndpoint

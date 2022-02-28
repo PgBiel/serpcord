@@ -12,7 +12,6 @@ aiohttp = "^3.8.1"
 [tool.poetry.dev-dependencies]
 Sphinx = "^4.4.0"
 sphinxcontrib-napoleon = "^0.7"
-autodocsumm = "^0.2.7"
 sphinx-autodoc = {git = "https://github.com/PgBiel/sphinx-autodoc.git"}
 
 [build-system]

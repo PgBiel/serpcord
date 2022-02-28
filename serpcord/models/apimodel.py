@@ -2,16 +2,17 @@ import abc
 import typing
 import json
 from enum import Enum, EnumMeta, Flag
+from typing import TypeVar
 
 from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
 
-TSelfAPIModel = typing.TypeVar("TSelfAPIModel", bound="APIModel")
+TSelfAPIModel = TypeVar("TSelfAPIModel", bound="APIModel")
 """Type var denoting the return of `self` in :class:`APIModel` methods, or of an instance of the own subclass
 in class methods.
 For example, :meth:`APIModel.from_raw_data`, a classmethod, returns an instance of the APIModel subclass
 on which it was called."""
 
-TSelfJsonAPIModel = typing.TypeVar("TSelfJsonAPIModel", bound="JsonAPIModel")
+TSelfJsonAPIModel = TypeVar("TSelfJsonAPIModel", bound="JsonAPIModel")
 """Type var denoting the return of `self` in :class:`JsonAPIModel` methods, or of an instance of the own subclass
 in class methods.
 For example, :meth:`JsonAPIModel.from_json_data`, a classmethod, returns an instance of the JsonAPIModel subclass
@@ -22,8 +23,10 @@ TParsedJsonType = typing.TypeVar("TParsedJsonType")
 In other words, if we received a JSON type other than that subclass' ``TParsedJsonType``, then it will
 likely raise an error."""
 
-class ABCEnumMeta(abc.ABCMeta, EnumMeta):
+
+class _ABCEnumMeta(EnumMeta, abc.ABCMeta):
     pass
+
 
 class APIModel(abc.ABC):
     """Abstract class for API Models."""
@@ -47,7 +50,9 @@ class APIModel(abc.ABC):
 class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
     """Abstract class for API Models that specifically require JSON parsing.
 
-    Requires one Generic parameter, :obj:`TParsedJsonType` - please refer to its documentation."""
+    Requires one Generic parameter, :obj:`TParsedJsonType`, which indicates which JSON data type
+    is required to construct this model (e.g. :class:`~.Snowflake` requires an :class:`int`; :class:`~.User` requires a
+    :class:`dict`; and so on."""
 
     @classmethod
     def from_raw_data(cls: typing.Type[TSelfJsonAPIModel], raw_data: str) -> TSelfJsonAPIModel:
@@ -90,7 +95,7 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
         raise NotImplementedError
 
 
-class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=ABCEnumMeta):
+class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
     @classmethod
     def from_json_data(cls, json_data: str):
         try:
@@ -99,7 +104,7 @@ class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=ABCEnumMeta):
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
 
-class IntEnumAPIModel(JsonAPIModel[int], Enum, metaclass=ABCEnumMeta):
+class IntEnumAPIModel(JsonAPIModel[int], Enum, metaclass=_ABCEnumMeta):
     @classmethod
     def from_json_data(cls, json_data: int):
         try:
@@ -108,7 +113,7 @@ class IntEnumAPIModel(JsonAPIModel[int], Enum, metaclass=ABCEnumMeta):
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
 
-class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=ABCEnumMeta):
+class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=_ABCEnumMeta):
     @classmethod
     def from_json_data(cls, json_data: int):
         try:

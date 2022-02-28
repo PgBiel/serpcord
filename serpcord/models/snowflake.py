@@ -1,6 +1,9 @@
 import datetime
 from .apimodel import JsonAPIModel
 from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
+from typing import ClassVar
+
+_datetime = datetime.datetime
 
 
 class Snowflake(JsonAPIModel[int]):
@@ -23,7 +26,7 @@ class Snowflake(JsonAPIModel[int]):
         sample_snowflake = Snowflake(value=613425648685547541)
     """
 
-    DISCORD_EPOCH: int = 1420070400  # timestamp in seconds (first second of 2015)
+    DISCORD_EPOCH: ClassVar[int] = 1420070400  # timestamp in seconds (first second of 2015)
     """Discord's epoch Unix timestamp (in seconds), equivalent to the first second of 2015."""
 
     def __init__(self, value: int):
@@ -97,7 +100,7 @@ class Snowflake(JsonAPIModel[int]):
         return datetime.datetime.fromtimestamp(self.timestamp)
 
     @property
-    def utcdatetime(self) -> "datetime.datetime":
+    def utcdatetime(self) -> _datetime:
         """Retrieves the UTC :class:`~datetime.datetime` object of when the object represented by this snowflake was
         created.
 
@@ -136,7 +139,7 @@ class Snowflake(JsonAPIModel[int]):
         return Snowflake(value=((timestamp - Snowflake.DISCORD_EPOCH)*1000) << 22)
 
     @classmethod
-    def from_datetime(cls, dt: "datetime.datetime"):
+    def from_datetime(cls, dt: _datetime):
         """Generates a Snowflake from a given :class:`~datetime.datetime` instance.
 
         Args:

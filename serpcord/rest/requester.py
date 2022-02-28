@@ -8,6 +8,10 @@ from .endpoint.endpoint_abc import Endpoint
 T = typing.TypeVar("T")
 
 
+# class Response(typing.Generic[T]):
+#
+
+
 class Requester:
     """Issues requests to the Discord API (REST).
 

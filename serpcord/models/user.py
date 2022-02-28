@@ -1,5 +1,5 @@
 import typing
-from typing import Optional, Dict
+from typing import Optional, Dict, Type
 
 from .apimodel import JsonAPIModel
 from .enums import Locale, UserFlags, UserPremiumType
@@ -77,7 +77,7 @@ class User(JsonAPIModel[dict]):
             avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
             is_mfa_enabled: bool = False,
             banner_hash: Optional[str] = None, accent_color_dec: Optional[int] = None,
-            locale: Locale = Locale, is_verified: bool = False, email: Optional[str] = None,
+            locale: Locale = Locale.EN_US, is_verified: bool = False, email: Optional[str] = None,
             flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
             public_flags: UserFlags = UserFlags.NONE
     ):
@@ -85,8 +85,9 @@ class User(JsonAPIModel[dict]):
         self.username: str = username  #: The user's username (non-unique).
         self.discriminator: str = discriminator
         self.avatar_hash: Optional[str] = avatar_hash
-        self.is_bot = is_bot
-        self.is_system = is_system
+        self.is_bot: bool = is_bot
+        self.is_system: bool = is_system
+        self.is_mfa_enabled: bool = is_mfa_enabled
         self.banner_hash: Optional[str] = banner_hash
         self.accent_color_dec: Optional[int] = accent_color_dec
         self.locale: Locale = locale
@@ -106,13 +107,17 @@ class User(JsonAPIModel[dict]):
         Raises:
             :exc:`APIJsonParsedTypeMismatchException`: If the given data wasn't valid user data.
         """
-        key_map: dict = {
+        expected_keys = [
+            "id", "username", "discriminator", "avatar", "bot", "system", "mfa_enabled", "banner", "accent", "color",
+            "locale", "verified", "email", "flags", "premium_type", "public", "flags"
+        ]
+        key_map = {
             "id": "userid", "avatar": "avatar_hash", "bot": "is_bot", "system": "is_system",
             "mfa_enabled": "is_mfa_enabled", "banner": "banner_hash", "accent_color": "accent_color_dec",
             "verified": "is_verified"
         }
-        val_model_map: Dict[str, JsonAPIModel] = {
-            "id": typing.cast(JsonAPIModel, Snowflake),
+        val_model_map = {
+            "id": Snowflake,
             "locale": Locale,
             "flags": UserFlags,
             "premium_type": UserPremiumType,
@@ -122,9 +127,10 @@ class User(JsonAPIModel[dict]):
             return cls(**dict(
                 (
                     key_map.get(k, k),
-                    val_model_map.get(v).from_json_data(v) if val_model_map.get(v) else v
+                    typing.cast(Type[JsonAPIModel], val_model_map.get(v)).from_json_data(v)
+                    if (v_ := val_model_map.get(v)) and issubclass(v_, JsonAPIModel) else v
                 )
-                for k, v in json_data.items()
+                for k, v in json_data.items() if k in expected_keys
             ))
         except (AttributeError, TypeError, ValueError) as e:
             raise APIJsonParsedTypeMismatchException("Unexpected User JSON data received.") from e

@@ -17,4 +17,5 @@ exceptions.dataparseexc
    :toctree:
 
    APIDataParseException
+   APIJsonParseException
    APIJsonParsedTypeMismatchException

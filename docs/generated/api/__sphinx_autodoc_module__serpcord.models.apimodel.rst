@@ -16,9 +16,9 @@ models.apimodel
 .. autosummary::
    :toctree:
 
-   ABCEnumMeta
    APIModel
    FlagEnumAPIModel
    IntEnumAPIModel
    JsonAPIModel
    StrEnumAPIModel
+   _ABCEnumMeta
