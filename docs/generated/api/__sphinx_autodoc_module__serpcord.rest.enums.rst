@@ -17,5 +17,5 @@ rest.enums
    :toctree:
 
    CDNImageFormats
+   HTTPDataType
    HTTPMethod
-   HTTPSentDataType

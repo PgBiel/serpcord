@@ -8,15 +8,15 @@ import typing
 import abc
 import aiohttp
 from typing import Optional, Iterable, Any, List, Dict, TypeVar
-from ..enums import HTTPMethod, HTTPSentDataType
-from ..httpsentdata import HTTPSentData
+from ..enums import HTTPMethod, HTTPDataType
+from ..helpers import HTTPSentData, Response
 
 API_VERSION = 9  #: Discord API version being currently used in the library.
 BASE_API_URL = f"https://discord.com/api/v{API_VERSION}/"  #: Base URL for all API requests.
 
 GT = TypeVar("GT")
 """Type parameter for parsed received data models for :class:`Endpoint` subclasses. I.e., for any Endpoint subclass,
-the method :meth:`Endpoint.parse_raw_received_data_to` always converts raw data received from the API
+the method :meth:`Endpoint.parse_response` always converts raw data received from the API
 (usually JSON) to an instance of ``GT``, whatever it may be (which depends on the subclass)."""
 # TODO: examples (GT, ST)
 
@@ -25,7 +25,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
     """An abstract class that represents a specific HTTP endpoint in the Discord REST API.
 
     Has a single generic parameter (:obj:`~.GT`), which corresponds to the model class returned by
-    the subclass' implementation of :meth:`parse_raw_received_data_to`. This same generic parameter,
+    the subclass' implementation of :meth:`parse_response`. This same generic parameter,
     with the same function, is also present in the direct (but still abstract) subclasses for GET, POST, PATCH,
     PUT and DELETE endpoints.
 
@@ -45,11 +45,9 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         headers (List[:class:`str`]): Extra headers to include for this endpoint when the request is done to the API.
         sent_data (Optional[:class:`~.HTTPSentData`]): Data to send in this endpoint (usually constructed in a
             subclass' ``__init__`` - defaults to ``None`` for no data).
-        received_data (Optional[:class:`str`]): Raw data received after a request was made
+        response (Optional[:class:`~.Response` [:obj:`~.GT`]]): Data (raw & parsed) received after a request was made
             using this Endpoint instance. This is only filled when a request is done
             successfully by :class:`~.Requester`.
-        parsed_received_data (Optional[:obj:`~.GT`]): The model instance resulting from applying
-            :meth:`parse_raw_received_data_to` to :attr:`received_data` after data is received.
 
     .. testsetup:: *
 
@@ -72,9 +70,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
 
         self.sent_data: Optional[HTTPSentData] = None  # should be set by subclasses
 
-        self.received_data: Optional[str] = None
-        # self.parsed_sent_data: Optional[ST] = None
-        self.parsed_received_data: Optional[GT] = None
+        self.response: Optional[Response[GT]] = None  # will be set by Requester upon request execution
 
     @property
     def url(self) -> str:
@@ -96,31 +92,21 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         return BASE_API_URL + ("/".join(self.parts))
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
-
-    def on_data_receive(self, raw_data: str):
-        """Method called when raw data is received as a response from the Discord API.
-        Sets internal variables & etc.
-
-        Args:
-            raw_data (:class:`str`): The received raw data.
-        """
-        self.received_data = raw_data
-        self.parsed_received_data = self.parse_raw_received_data_to(raw_data)
 
     def __repr__(self):
         method = repr(self.method)
@@ -142,19 +128,19 @@ class GETEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.GET, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
 
@@ -177,19 +163,19 @@ class POSTEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.POST, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
 
@@ -212,19 +198,19 @@ class PATCHEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.PATCH, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
 
@@ -247,19 +233,19 @@ class PUTEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.PUT, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
 
@@ -282,19 +268,19 @@ class DELETEEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.DELETE, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    def parse_raw_received_data_to(self, raw_data: str) -> GT:
-        """Abstract method for converting raw data received through the Discord API (usually JSON)
+    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+        """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
-            raw_data (:class:`str`): The raw data that should be converted to a model instance (whose class
-                depends on the Endpoint subclass).
+            response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
+                (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
         Returns:
-            :obj:`~.GT`: The resulting model instance, constructed with the given raw data.
+            :obj:`~.GT`: The resulting model instance, constructed with the given response data.
 
         Raises:
-            :exc:`APIDataParseException`: If the raw data could not be properly parsed.
+            :exc:`APIDataParseException`: If the response data could not be properly parsed.
         """
         raise NotImplementedError
 

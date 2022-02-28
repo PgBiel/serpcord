@@ -2,6 +2,9 @@
 import typing
 import abc
 from typing import Optional, Iterable, Generic
+
+import aiohttp
+
 from ...models.user import User
 from .endpoint_abc import GETEndpoint, PATCHEndpoint
 
@@ -12,20 +15,20 @@ class GetCurrentUserEndpoint(GETEndpoint[User]):
     def __init__(self):
         super().__init__(("users", "@me"), None)
 
-    def parse_raw_received_data_to(self, raw_data: str) -> User:
-        """Returns the current User by parsing the raw data received from Discord.
+    async def parse_response(self, response: aiohttp.ClientResponse) -> User:
+        """Returns the current :class:`~.User` by parsing response data received from Discord.
 
         Args:
-            raw_data (:class:`str`): Raw data received from Discord to parse.
+            response (:class:`aiohttp.ClientResponse`): Response data received from Discord to parse.
 
         Returns:
-            :class:`~.User`: The :class:`~.User` instance that resulted from parsing the raw data, which should
+            :class:`~.User`: The :class:`~.User` instance that resulted from parsing the response data, which should
             correspond to the current user (i.e. the bot's user).
 
         See Also:
-            :meth:`Endpoint.parse_raw_received_data_to() <.Endpoint.parse_raw_received_data_to>`
+            :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
-        return User.from_raw_data(raw_data)
+        return await User.from_response(response)
 
     def __repr__(self):
         return f"{self.__class__.__qualname__}()"
@@ -37,13 +40,13 @@ class PatchCurrentUserEndpoint(PATCHEndpoint[User]):
     def __init__(self, *, username: Optional[str] = None, avatar: Optional[str] = None):  # TODO: Image Data type
         super().__init__(("users", "@me"), None)
 
-    def parse_raw_received_data_to(self, data: str) -> User:
+    async def parse_response(self, response: aiohttp.ClientResponse) -> User:
         """Returns the modified user.
 
         See Also:
-            :meth:`Endpoint.parse_raw_received_data_to() <.Endpoint.parse_raw_received_data_to>`
+            :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
-        return User.from_raw_data(data)
+        return await User.from_response(response)
 
     # def __repr__(self):
     #     return f"{self.__class__.__qualname__}(username=)"

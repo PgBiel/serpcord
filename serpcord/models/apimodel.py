@@ -4,7 +4,10 @@ import json
 from enum import Enum, EnumMeta, Flag, IntEnum, IntFlag
 from typing import TypeVar
 
-from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
+import aiohttp
+
+from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException, \
+    APIJsonParseException
 
 TSelfAPIModel = TypeVar("TSelfAPIModel", bound="APIModel")
 """Type var denoting the return of `self` in :class:`APIModel` methods, or of an instance of the own subclass
@@ -33,11 +36,12 @@ class APIModel(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_raw_data(cls: typing.Type[TSelfAPIModel], raw_data: str) -> TSelfAPIModel:
-        """Abstract method to convert raw string data received from the Discord API to an instance of this model.
+    async def from_response(cls: typing.Type[TSelfAPIModel], response: aiohttp.ClientResponse) -> TSelfAPIModel:
+        """Abstract method to convert response data received from the Discord API to an instance of this model.
 
         Args:
-            raw_data (:class:`str`): The raw string of data received from the Discord API to convert to this model.
+            response (:class:`aiohttp.ClientResponse`): The response data received from the Discord API to convert to
+                this model.
 
         Returns:
             :obj:`~.TSelfAPIModel`: The generated instance of this :class:`APIModel` subclass.
@@ -55,15 +59,16 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
     :class:`dict`; and so on."""
 
     @classmethod
-    def from_raw_data(cls: typing.Type[TSelfJsonAPIModel], raw_data: str) -> TSelfJsonAPIModel:
-        """Method to convert raw string data received from the Discord API to an instance of this model.
+    async def from_response(cls: typing.Type[TSelfJsonAPIModel], response: aiohttp.ClientResponse) -> TSelfJsonAPIModel:
+        """Method to convert response data received from the Discord API to an instance of this model.
 
-        The default behavior for :class:`JsonAPIModel` subclasses is simply to parse JSON from the raw string
+        The default behavior for :class:`JsonAPIModel` subclasses is simply to parse JSON from the response
         (assuming JSON is expected), and then use the abstract (subclass-dependent) :meth:`~.from_json_data`
         method to convert the parsed JSON to an instance.
 
         Args:
-            raw_data (:class:`str`): The raw string of data received from the Discord API to convert to this model.
+            response (:class:`aiohttp.ClientRespond`): The response data received from the Discord API to convert to
+                this model.
 
         Returns:
             :obj:`TSelfJsonAPIModel`: The generated instance of this JsonAPIModel subclass.
@@ -72,9 +77,9 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
             :exc:`APIDataParseException`: If the raw data could not be properly parsed.
         """
         try:
-            return cls.from_json_data(json.loads(raw_data))
-        except json.JSONDecodeError as e:
-            raise APIDataParseException("Malformed JSON data received.") from e
+            return cls.from_json_data(await response.json())
+        except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+            raise APIJsonParseException("Malformed/non-JSON data received.") from e
 
     @classmethod
     @abc.abstractmethod

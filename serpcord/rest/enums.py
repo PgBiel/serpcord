@@ -50,7 +50,8 @@ class CDNImageFormats(Enum):
         return f".{self.value}"
 
 
-class HTTPSentDataType(Enum):
-    """An :class:`~enum.Enum` listing possible types of data to be sent to the Discord API."""
+class HTTPDataType(Enum):
+    """An :class:`~enum.Enum` listing possible types of data to be sent to or received from the Discord API."""
 
     APPLICATION_JSON = "application/json"
+    TEXT_PLAIN = "text/plain"

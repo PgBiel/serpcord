@@ -33,21 +33,6 @@ class Snowflake(JsonAPIModel[int]):
         self.value: int = value
 
     @classmethod
-    def from_raw_data(cls, raw_data: str):
-        """Generates a Snowflake from raw Discord data, by instantiating with ``Snowflake(int(raw_data))``.
-
-        Args:
-            raw_data (:class:`str`): Raw data from Discord to be parsed into a Snowflake instance.
-
-        Returns:
-            :class:`Snowflake`: The Snowflake instance generated from the given data.
-
-        Raises:
-            :exc:`APIDataParseException`: If the given data can't be directly coverted to an :class:`int`.
-        """
-        super().from_raw_data(raw_data)
-
-    @classmethod
     def from_json_data(cls, json_data: int):
         """Generates a Snowflake from parsed JSON data (int), by instantiating with ``Snowflake(int(raw_data))``.
 

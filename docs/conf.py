@@ -70,7 +70,10 @@ doctest_test_doctest_blocks = "default"
 napoleon_google_docstring = True
 
 # Intersphinx settings
-intersphinx_mapping = {'python': ('https://docs.python.org/3.9', None)}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3.9', None),
+    'aiohttp': ('https://docs.aiohttp.org/en/stable', None)
+}
 
 # # Autodoc settings
 # autodoc_default_options = {
