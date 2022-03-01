@@ -249,100 +249,135 @@ allow=<PermissionFlags.NONE: 0>, deny=<PermissionFlags.CONNECT|BAN_MEMBERS: 1048
         raise TypeError("'cls' must be a class.")
 
     if not isinstance(json_data, collections.Mapping):
-        raise APIJsonParsedTypeMismatchException(f"Unexpected {cls.__qualname__} JSON data received (wasn't dict).")
+        raise APIJsonParsedTypeMismatchException(
+            f"Unexpected {cls.__qualname__} JSON data received (expected dict/Mapping; \
+got {type(json_data).__qualname__})."
+        )
 
     init_method: Callable = cls.__init__
-    assert callable(init_method)
-    signature: inspect.Signature = inspect.signature(init_method)
-    params = signature.parameters
+
+    if not callable(init_method):
+        raise TypeError("Given class' init isn't callable (?).")
+
+    signature: inspect.Signature = inspect.signature(init_method)  # get init signature
+    params = signature.parameters  # get init params
+
+    # True if init accepts **kwargs; False otherwise
     accepts_kwargs = bool([param for param in params.values() if param.kind == inspect.Parameter.VAR_KEYWORD])
+
+    # Possible param names in init
     expected_keys = list(params.keys())
+
+    # Param annotations (form { param_name: expected_type })
     annotations: Dict[str, Any] = _get_annotation_port(init_method, eval_str=True)
 
+    # key/values given through json_data (and parsed/renamed)
     received_params: Dict[str, Any] = dict()
     for k, v in json_data.items():
-        renamed = (rename or dict()).get(k, k)
-        if accepts_kwargs or renamed in expected_keys:
-            possible_json_model = annotations.get(renamed, None)
-            converted_type: Optional[Union[type, Tuple[type, ...]]] = None
-            possible_json_models: List[Type[JsonAPIModel]] = []
-            gen_alias = getattr(typing, "_GenericAlias")
-            set_value: Any = v
-            pjm_is_type_or_gen_alias = False
+        renamed = rename.get(k, k) if rename is not None else k  # rename according to map
+        if accepts_kwargs or renamed in expected_keys:  # is valid param name (or **kwargs is present => any name's OK)
+            possible_json_model = annotations.get(renamed, None)  # get the param's type annotation (a possible
+            converted_type: Optional[Union[type, Tuple[type, ...]]] = None         # JSON model to be parsed from data)
+            # possible_json_models: List[Type[JsonAPIModel]] = []
+            gen_alias = getattr(typing, "_GenericAlias")  # <- type for objects of form C[T], where C and T are types
+            set_value: Any = v  # post-JSON model parsing value
+            pjm_is_type_or_gen_alias = False  # True if possible_json_model is a type or Generic alias (C or C[T])
             if (
-                isinstance(possible_json_model, type)
+                isinstance(possible_json_model, type)  # form C
                 or (isinstance(gen_alias, type) and isinstance(possible_json_model, gen_alias))  # form C[T]
             ):
                 pjm_is_type_or_gen_alias = True
-                converted_type = _typing_generic_converter(possible_json_model)
-                last_error: Optional[Exception] = None
-                has_non_jsonapimodel: bool = False
-                if isinstance(converted_type, tuple):  # multiple possible types for this parameter
-                    for possible_type in converted_type:
+                converted_type = _typing_generic_converter(possible_json_model)  # reduce C[T] to C; Union[A, B, ...]
+                last_error: Optional[Exception] = None                           # to (A, B, ...); Optional[T] to T
+                if isinstance(converted_type, tuple):  # multiple possible types for this parameter (Union[A,B,...])
+                    has_non_jsonapimodel: bool = False  # True if one of the possible types is not a JsonAPIModel
+                    for possible_type in converted_type:  # go through each type; attempt to parse
                         if isinstance(possible_type, type):
-                            if issubclass(possible_type, JsonAPIModel):
-                                if isinstance(v, possible_type):
-                                    break  # done, v already has a compatible type.
-                                else:
-                                    try:
-                                        set_value = possible_type.from_json_data(v)
-                                        break
-                                    except (APIDataParseException, TypeError) as e:
-                                        last_error = e
+                            if isinstance(v, possible_type):
+                                break  # done, v already has a compatible type.
+                            elif issubclass(possible_type, JsonAPIModel):
+                                try:
+                                    set_value = possible_type.from_json_data(v)
+                                    break
+                                except (APIDataParseException, TypeError) as e:
+                                    last_error = e
                             else:
-                                has_non_jsonapimodel = True  # -> don't error due to not being able to match the type
+                                # -> since a Non-JsonAPIModel type is possible, don't error for mismatched type
+                                # (Non-JsonAPIModel type checking is done later with
+                                # the type_check_types parameter)
+                                has_non_jsonapimodel = True
                     else:  # JSON data received did not fit into any of the possible types.
                         if not has_non_jsonapimodel:  # all are jsonapimodels and all conversion attempts failed
                             json_error = APIJsonParseException(  # -> raise
                                 f"Unexpected {cls.__qualname__} JSON data received. \
 (Key: {repr(k)}; Received: {repr(v)}, of type {type(v).__qualname__}; Failed to parse to {repr(possible_json_model)})"
                             )
-                            if last_error is not None and isinstance(last_error, BaseException):
+                            if last_error is not None and isinstance(last_error, Exception):  # get last parse failure
                                 raise json_error from last_error
                             else:
                                 raise json_error
+                elif (  # parameter type is not a Union - it's a single type -, so just run a simple isinstance check
+                    isinstance(converted_type, type)  # to then proceed to convert to the relevant JsonAPIModel,
+                    and issubclass(converted_type, JsonAPIModel)  # if necessary
+                    and not isinstance(v, converted_type)         # (This isn't exactly a typecheck - it just converts
+                ):                                                # raw data to JsonAPIModel when a subclass of it
+                    set_value = converted_type.from_json_data(v)  # is expected. Then, typechecking is a consequence)
 
-                elif (
-                    isinstance(converted_type, type)
-                    and issubclass(converted_type, JsonAPIModel)
-                    and not isinstance(v, converted_type)
-                ):
-                    set_value = converted_type.from_json_data(v)
-            if (
+            if (  # begin typechecking.
                 pjm_is_type_or_gen_alias
                 and converted_type is not None
                 and (
-                    type_check_types is True
+                    type_check_types is True  # check all types... or just this one
                     or isinstance(type_check_types, collections.Iterable) and possible_json_model in type_check_types
                 )
-                and not isinstance(set_value, converted_type)
+                and not isinstance(set_value, converted_type)  # not expected instance! => raise. (failed type check)
             ):
                 parsed_txt = f", parsed into a {type(set_value).__qualname__}" if type(v) != type(set_value) else ""
                 raise APIJsonParsedTypeMismatchException(
                     f"Unexpected {cls.__qualname__} JSON data received. \
 (Key: {repr(k)}; Expected a {repr(possible_json_model)}; Received a {type(v).__qualname__}{parsed_txt})."
                 )
+
+            # ok, JsonAPIModel parsing done, typechecking done. We may now use the resulting object.
             received_params[renamed] = set_value
 
-    pos_args: List[Any] = list()
-    kwargs: Dict[str, Any] = dict()
-    for param_name, parameter in params.items():
-        if param_name in received_params:
-            received_val = received_params[param_name]
-            if parameter.kind == parameter.POSITIONAL_ONLY:
-                pos_args.append(received_val)
-            elif parameter.kind == parameter.VAR_POSITIONAL:
-                if isinstance(received_val, collections.Iterable):
-                    pos_args.append(*received_val)  # prob have to expand given list
+    pos_args: List[Any] = list()  # pos args to pass to init
+    kwargs: Dict[str, Any] = dict()  # kwargs to pass to init
+    if accepts_kwargs:  # init accepts **kwargs
+        for k, v in received_params.items():  # then only append pos args for pos-only args. Everything else: kwargs
+            if k in params:
+                param = params[k]
+                if param.kind == param.POSITIONAL_ONLY:
+                    pos_args.append(v)
+                elif param.kind == param.VAR_POSITIONAL:
+                    raise TypeError("*args and **kwargs simultaneously in JsonAPIModel init is forbidden.")
+                elif param.kind == param.VAR_KEYWORD:
+                    if isinstance(v, collections.Mapping):
+                        kwargs.update(v)  # prob have to expand given dict
+                    else:
+                        kwargs[k] = v  # can't do, so just set it
                 else:
-                    pos_args.append(received_val)  # guess we can't do that, so whatever then, just append it
-            elif parameter.kind == parameter.VAR_KEYWORD:
-                if isinstance(received_val, collections.Mapping):
-                    kwargs.update(received_val)  # prob have to expand given dict
-                else:
-                    kwargs[param_name] = received_val  # can't do, so just append it
-            elif parameter.kind in (parameter.POSITIONAL_OR_KEYWORD, parameter.KEYWORD_ONLY):
-                kwargs[param_name] = received_val
+                    kwargs[k] = v
+            else:
+                kwargs[k] = v  # will go in the func's kwargs
+    else:  # init doesn't accept **kwargs => go through each parameter to check if they're pos-only or whatever else
+        for param_name, parameter in params.items():
+            if param_name in received_params:
+                received_val = received_params[param_name]
+                if parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD):
+                    pos_args.append(received_val)
+                elif parameter.kind == parameter.VAR_POSITIONAL:
+                    if isinstance(received_val, collections.Iterable):
+                        pos_args.append(*received_val)  # prob have to expand given list
+                    else:
+                        pos_args.append(received_val)  # guess we can't do that, so whatever then, just append it
+                elif parameter.kind == parameter.VAR_KEYWORD:
+                    if isinstance(received_val, collections.Mapping):
+                        kwargs.update(received_val)  # prob have to expand given dict
+                    else:
+                        kwargs[param_name] = received_val  # can't do, so just set it
+                elif parameter.kind == parameter.KEYWORD_ONLY:
+                    kwargs[param_name] = received_val
 
     try:
         return cls(*pos_args, **kwargs)
