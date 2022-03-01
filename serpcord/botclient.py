@@ -1,3 +1,5 @@
+import asyncio
+
 import aiohttp
 from .rest.requester import Requester
 from .utils import process_token
@@ -20,4 +22,5 @@ class BotClient:
         self.requester: Requester = Requester(self.token, self.session, bind_session=False)
 
     def __del__(self):
-        self.session.close()
+        if self and getattr(self, "session", None) and not getattr(self.session, "closed", True):
+            asyncio.get_event_loop().run_until_complete(self.session.close())

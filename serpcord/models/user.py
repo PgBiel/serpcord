@@ -6,7 +6,7 @@ from .enums import Locale, UserFlags, UserPremiumType
 from ..rest.cdn import BASE_CDN_URL
 from ..rest.enums import CDNImageFormats
 from .snowflake import Snowflake
-from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException
+from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIJsonParseException
 
 
 class User(JsonAPIModel[Mapping[str, Any]]):
@@ -128,13 +128,15 @@ class User(JsonAPIModel[Mapping[str, Any]]):
             return cls(**dict(
                 (
                     key_map.get(k, k),
-                    typing.cast(Type[JsonAPIModel], val_model_map.get(v)).from_json_data(v)
-                    if (v_ := val_model_map.get(v)) and issubclass(v_, JsonAPIModel) else v
+                    typing.cast(Type[JsonAPIModel], v_).from_json_data(v)
+                    if (v_ := val_model_map.get(k)) and issubclass(v_, JsonAPIModel) else v
                 )
                 for k, v in json_data.items() if k in expected_keys
             ))
-        except (AttributeError, TypeError, ValueError) as e:
+        except (TypeError, ValueError) as e:
             raise APIJsonParsedTypeMismatchException("Unexpected User JSON data received.") from e
+        except AttributeError as e:
+            raise APIJsonParseException("Unexpected User JSON data received.") from e
 
     def avatar_url(self, img_format: CDNImageFormats = CDNImageFormats.PNG) -> str:
         """Returns this user's avatar URL, in the given format (or PNG by default).
@@ -170,3 +172,8 @@ class User(JsonAPIModel[Mapping[str, Any]]):
         u_id: str = str(self.id.value)
         u_avh: str = str(self.avatar_hash)
         return f"{BASE_CDN_URL}avatars/{u_id}/{'a_' if img_format == CDNImageFormats.GIF else ''}{u_avh}{file_ext}"
+
+    def __repr__(self):
+        class_qname = self.__class__.__qualname__
+        return f"{class_qname}({repr(self.id)}, username={repr(self.username)}, \
+discriminator={repr(self.discriminator)}, is_bot={repr(self.is_bot)}, is_system={repr(self.is_system)})"

@@ -109,7 +109,7 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         raise NotImplementedError
 
     def __repr__(self):
-        return f"<{self.__class__.__qualname__} url={self.url}>"
+        return f"<{self.__class__.__qualname__} url={repr(self.url)}>"
 
 
 class GETEndpoint(Endpoint[GT], abc.ABC):

@@ -41,7 +41,12 @@ class Requester:
         self.bind_session = bind_session
 
     def __del__(self):
-        if self.bind_session:
+        if (
+            self
+            and getattr(self, "bind_session", False)
+            and getattr(self, "session", None)
+            and not getattr(self.session, "closed", True)
+        ):
             asyncio.get_event_loop().run_until_complete(self.session.close())
 
     async def request_endpoint(self, endpoint: Endpoint[T]) -> Response[T]:  # TODO: endpoint with async parsing; imgs
@@ -67,6 +72,7 @@ class Requester:
             endpoint.method.value.lower(), endpoint.url, headers=headers,
             data=endpoint.sent_data or None
         ) as resp:
+            resp.raise_for_status()
             content_type = resp.content_type
             parsed_resp: T = await endpoint.parse_response(resp)
 

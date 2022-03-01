@@ -1,1 +1,1 @@
-from .format import process_token
+from .string import process_token

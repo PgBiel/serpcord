@@ -2,7 +2,7 @@ import abc
 import typing
 import json
 from enum import Enum, EnumMeta, Flag, IntEnum, IntFlag
-from typing import TypeVar
+from typing import TypeVar, Mapping, Any, Optional
 
 import aiohttp
 
@@ -10,13 +10,13 @@ from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException,
     APIJsonParseException
 
 TSelfAPIModel = TypeVar("TSelfAPIModel", bound="APIModel")
-"""Type var denoting the return of `self` in :class:`APIModel` methods, or of an instance of the own subclass
+"""Type var denoting `self` in :class:`APIModel` methods, or an instance of the own subclass
 in class methods.
 For example, :meth:`APIModel.from_raw_data`, a classmethod, returns an instance of the APIModel subclass
 on which it was called."""
 
 TSelfJsonAPIModel = TypeVar("TSelfJsonAPIModel", bound="JsonAPIModel")
-"""Type var denoting the return of `self` in :class:`JsonAPIModel` methods, or of an instance of the own subclass
+"""Type var denoting `self` in :class:`JsonAPIModel` methods, or an instance of the own subclass
 in class methods.
 For example, :meth:`JsonAPIModel.from_json_data`, a classmethod, returns an instance of the JsonAPIModel subclass
 on which it was called."""
@@ -114,7 +114,7 @@ class IntEnumAPIModel(JsonAPIModel[int], IntEnum, metaclass=_ABCEnumMeta):
     @classmethod
     def from_json_data(cls, json_data: int):
         try:
-            return cls(json_data)
+            return cls(int(json_data))
         except ValueError as e:
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
@@ -124,7 +124,7 @@ class IntFlagEnumAPIModel(JsonAPIModel[int], IntFlag, metaclass=_ABCEnumMeta):  
     @classmethod                                                           # https://github.com/python/mypy/issues/9319
     def from_json_data(cls, json_data: int):
         try:
-            return cls(json_data)
+            return cls(int(json_data))
         except ValueError as e:
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
 
