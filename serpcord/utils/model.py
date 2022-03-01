@@ -1,4 +1,4 @@
-__all__ = ("init_model_from_mapping_json_data",)
+__all__ = ("init_model_from_mapping_json_data", "Updatable")
 
 import typing
 import inspect
@@ -9,6 +9,9 @@ from serpcord.models.apimodel import JsonAPIModel
 from typing import Optional, TypeVar, Mapping, Any, Type, Dict, Callable, List, Iterable, Union, Tuple
 
 T = TypeVar("T", bound=JsonAPIModel[Mapping[str, Any]])
+
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
 
 
 def _get_annotation_port(obj, *, globals=None, locals=None, eval_str=False):
@@ -191,7 +194,7 @@ def _typing_generic_converter(T: Any, *, recursive: bool = True) -> Union[type, 
 
 
 def init_model_from_mapping_json_data(
-    cls: Type[T], json_data: Mapping[str, Any],
+    cls: Type[T], client: "BotClient", json_data: Mapping[str, Any],
     *, rename: Optional[Mapping[str, str]] = None, type_check_types: Union[bool, Iterable[Any]] = False
 ) -> T:
     """Generic function for instantiating :class:`~.JsonAPIModel` subclasses
@@ -200,6 +203,7 @@ def init_model_from_mapping_json_data(
 
     Args:
         cls (Type[``T``]): The class of the model that should be instantiated, hereby represented by ``T``.
+        client (:class:`~.BotClient`): The bot's active client instance.
         json_data (Mapping[:class:`str`, Any]): The JSON data to convert to a model instance (a Mapping/:class:`dict`).
         rename (Optional[Mapping[:class:`str`, :class:`str`]], optional): A Mapping/:class:`dict` to map keys received
             from the API to valid init parameter names. (Defaults to ``None`` - no additional mapping is
@@ -237,11 +241,13 @@ def init_model_from_mapping_json_data(
         .. testsetup:: *
 
             from serpcord.utils.model import init_model_from_mapping_json_data
+            token = "123"
         .. doctest::
 
-            >>> from serpcord.models.permissions import PermissionOverwrite
+            >>> from serpcord import BotClient, PermissionOverwrite
+            >>> bot = BotClient(token)
             >>> json_data = { "id": 123, "type": 1, "allow": 0, "deny": 1048580 }
-            >>> PermissionOverwrite.from_json_data(json_data)
+            >>> PermissionOverwrite.from_json_data(bot, json_data)
             PermissionOverwrite(target_id=Snowflake(value=123), overwrite_type=<PermissionOverwriteType.MEMBER: 1>, \
 allow=<PermissionFlags.NONE: 0>, deny=<PermissionFlags.CONNECT|BAN_MEMBERS: 1048580>)
     """
@@ -273,7 +279,12 @@ got {type(json_data).__qualname__})."
 
     # key/values given through json_data (and parsed/renamed)
     received_params: Dict[str, Any] = dict()
-    for k, v in json_data.items():
+
+    full_receiving_data = {
+        **json_data,
+        "client": client  # setting client in case it is necessary
+    }
+    for k, v in full_receiving_data.items():
         renamed = rename.get(k, k) if rename is not None else k  # rename according to map
         if accepts_kwargs or renamed in expected_keys:  # is valid param name (or **kwargs is present => any name's OK)
             possible_json_model = annotations.get(renamed, None)  # get the param's type annotation (a possible
@@ -297,7 +308,7 @@ got {type(json_data).__qualname__})."
                                 break  # done, v already has a compatible type.
                             elif issubclass(possible_type, JsonAPIModel):
                                 try:
-                                    set_value = possible_type.from_json_data(v)
+                                    set_value = possible_type.from_json_data(client, v)
                                     break
                                 except (APIDataParseException, TypeError) as e:
                                     last_error = e
@@ -321,7 +332,9 @@ got {type(json_data).__qualname__})."
                     and issubclass(converted_type, JsonAPIModel)  # if necessary
                     and not isinstance(v, converted_type)         # (This isn't exactly a typecheck - it just converts
                 ):                                                # raw data to JsonAPIModel when a subclass of it
-                    set_value = converted_type.from_json_data(v)  # is expected. Then, typechecking is a consequence)
+                    set_value = converted_type.from_json_data(    # is expected. Then, typechecking is a consequence)
+                        client, v
+                    )
 
             if (  # begin typechecking.
                 pjm_is_type_or_gen_alias
@@ -385,3 +398,15 @@ got {type(json_data).__qualname__})."
         raise APIJsonParsedTypeMismatchException(f"Unexpected {cls.__qualname__} JSON data received.") from e
     except AttributeError as e:
         raise APIJsonParseException(f"Unexpected {cls.__qualname__} JSON data received.") from e
+
+
+TSelf = typing.TypeVar("TSelf", bound="Updatable")
+class Updatable:
+    """Helper class that allows subclasses' instances to copy other instances' data."""
+    def _update(self: TSelf, other: TSelf):
+        """Update this instance by replacing its data with another instance's (using solely ``__dict__``).
+
+        Args:
+            other: Other instance from which data should be copied to the current instance.
+        """
+        self.__dict__.update(other.__dict__)

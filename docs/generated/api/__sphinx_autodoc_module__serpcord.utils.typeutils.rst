@@ -2,21 +2,18 @@
 .. rst file which lists all members of the current module. They will be
 .. handled by the Sphinx autosummary extension.
 
-utils.model
-===========
+utils.typeutils
+===============
 
 .. Documentation string which may be at the top of the module.
-.. automodule:: serpcord.utils.model
+.. automodule:: serpcord.utils.typeutils
    :no-members:
    :no-inherited-members:
 
-.. currentmodule:: serpcord.utils.model
+.. currentmodule:: serpcord.utils.typeutils
 
 .. Links to members.
 .. autosummary::
    :toctree:
 
-   Updatable
-   _get_annotation_port
-   _typing_generic_converter
-   init_model_from_mapping_json_data
+   SerpcordDefaultType

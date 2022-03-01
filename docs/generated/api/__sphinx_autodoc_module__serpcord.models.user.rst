@@ -17,4 +17,5 @@ models.user
    :toctree:
 
    BASE_CDN_URL
+   BotUser
    User

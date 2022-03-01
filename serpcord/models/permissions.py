@@ -30,9 +30,9 @@ class PermissionOverwrite(JsonAPIModel[Mapping[str, Any]]):
         self.deny: PermissionFlags = deny
 
     @classmethod
-    def from_json_data(cls, json_data: Mapping[str, Any]):
+    def from_json_data(cls, client, json_data: Mapping[str, Any]):
         return init_model_from_mapping_json_data(
-            cls, json_data, rename=dict(id="target_id", type="overwrite_type"),
+            cls, client, json_data, rename=dict(id="target_id", type="overwrite_type"),
             type_check_types=True
         )
 

@@ -20,6 +20,10 @@ the method :meth:`Endpoint.parse_response` always converts raw data received fro
 (usually JSON) to an instance of ``GT``, whatever it may be (which depends on the subclass)."""
 # TODO: examples (GT, ST)
 
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
+
+
 
 class Endpoint(abc.ABC, typing.Generic[GT]):
     """An abstract class that represents a specific HTTP endpoint in the Discord REST API.
@@ -92,11 +96,12 @@ class Endpoint(abc.ABC, typing.Generic[GT]):
         return BASE_API_URL + ("/".join(self.parts))
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
@@ -125,11 +130,12 @@ class GETEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.GET, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
@@ -155,11 +161,12 @@ class POSTEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.POST, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
@@ -185,11 +192,12 @@ class PATCHEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.PATCH, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
@@ -215,11 +223,12 @@ class PUTEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.PUT, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 
@@ -245,11 +254,12 @@ class DELETEEndpoint(Endpoint[GT], abc.ABC):
         super().__init__(method=HTTPMethod.DELETE, parts=parts, headers=headers)
 
     @abc.abstractmethod
-    async def parse_response(self, response: aiohttp.ClientResponse) -> GT:
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> GT:
         """Abstract method for converting data received through the Discord API (usually JSON)
         to an instance of a model class.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data that should be converted to a model instance
                 (the specific model depends on the Endpoint subclass, and is defined by the generic parameter ``GT``).
 

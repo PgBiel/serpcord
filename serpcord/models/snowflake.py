@@ -33,10 +33,11 @@ class Snowflake(JsonAPIModel[int]):
         self.value: int = value
 
     @classmethod
-    def from_json_data(cls, json_data: int):
-        """Generates a Snowflake from parsed JSON data (int), by instantiating with ``Snowflake(int(raw_data))``.
+    def from_json_data(cls, _c, json_data: int):
+        """Generates a Snowflake from parsed JSON data (int), by instantiating with ``Snowflake(int(json_data))``.
 
         Args:
+            _c (:class:`~.BotClient`): (Ignored.)
             json_data (:class:`int`): JSON data from Discord to be parsed into a Snowflake instance.
 
         Returns:

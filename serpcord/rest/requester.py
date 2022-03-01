@@ -11,12 +11,17 @@ from .endpoint.endpoint_abc import Endpoint
 
 T = typing.TypeVar("T")
 
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
+
 
 class Requester:
     """Issues requests to the Discord API (REST).
 
     Attributes:
         token (:class:`str`): The client's token.
+        client (:class:`~.BotClient`): The bot's active client instance, which was used to create this instance
+            of Requester.
         session (:class:`aiohttp.ClientSession`): The client's session, for requests.
         bind_session (:class:`bool`): If ``True``, the given session will be closed when the
             ``Requester`` instance is destroyed. (``False`` by default.)
@@ -31,9 +36,9 @@ class Requester:
     #: The library's user agent header.
     USER_AGENT: ClassVar[str] = "serpcord (https://github.com/PgBiel/serpcord, 0.0.1a)"
 
-    def __init__(self, token: str, session: aiohttp.ClientSession, *, bind_session: bool = False):
+    def __init__(self, token: str, client: "BotClient", session: aiohttp.ClientSession, *, bind_session: bool = False):
         self.token = process_token(token)
-
+        self.client = client
         # session.headers.add
         session.headers.add("Authorization", self.token)
         session.headers.add("User Agent", Requester.USER_AGENT)
@@ -74,7 +79,7 @@ class Requester:
         ) as resp:
             resp.raise_for_status()
             content_type = resp.content_type
-            parsed_resp: T = await endpoint.parse_response(resp)
+            parsed_resp: T = await endpoint.parse_response(self.client, resp)
 
             raw_resp: bytes = await resp.read()
             text_resp: Optional[str] = None

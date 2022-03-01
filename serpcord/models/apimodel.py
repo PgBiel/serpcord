@@ -27,6 +27,10 @@ In other words, if we received a JSON type other than that subclass' ``TParsedJs
 likely raise an error."""
 
 
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
+
+
 class _ABCEnumMeta(EnumMeta, abc.ABCMeta):
     pass
 
@@ -36,10 +40,13 @@ class APIModel(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def from_response(cls: typing.Type[TSelfAPIModel], response: aiohttp.ClientResponse) -> TSelfAPIModel:
+    async def from_response(
+        cls: typing.Type[TSelfAPIModel], client: "BotClient", response: aiohttp.ClientResponse
+    ) -> TSelfAPIModel:
         """Abstract method to convert response data received from the Discord API to an instance of this model.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): The response data received from the Discord API to convert to
                 this model.
 
@@ -59,7 +66,9 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
     :class:`dict`; and so on."""
 
     @classmethod
-    async def from_response(cls: typing.Type[TSelfJsonAPIModel], response: aiohttp.ClientResponse) -> TSelfJsonAPIModel:
+    async def from_response(
+        cls: typing.Type[TSelfJsonAPIModel], client: "BotClient", response: aiohttp.ClientResponse
+    ) -> TSelfJsonAPIModel:
         """Method to convert response data received from the Discord API to an instance of this model.
 
         The default behavior for :class:`JsonAPIModel` subclasses is simply to parse JSON from the response
@@ -67,6 +76,7 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
         method to convert the parsed JSON to an instance.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientRespond`): The response data received from the Discord API to convert to
                 this model.
 
@@ -77,16 +87,19 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
             :exc:`APIDataParseException`: If the raw data could not be properly parsed.
         """
         try:
-            return cls.from_json_data(await response.json())
+            return cls.from_json_data(client, await response.json())
         except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
             raise APIJsonParseException("Malformed/non-JSON data received.") from e
 
     @classmethod
     @abc.abstractmethod
-    def from_json_data(cls: typing.Type[TSelfJsonAPIModel], json_data: TParsedJsonType) -> TSelfJsonAPIModel:
+    def from_json_data(
+        cls: typing.Type[TSelfJsonAPIModel], client: "BotClient", json_data: TParsedJsonType
+    ) -> TSelfJsonAPIModel:
         """Abstract method to convert parsed JSON data from the Discord API to an instance of this model.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             json_data (:obj:`~.TParsedJsonType`): The parsed JSON data with which this model should be instantiated,
                 necessarily in the type required by this :class:`JsonAPIModel` subclass.
 
@@ -101,8 +114,9 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
 
 class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
     """Base class for string :class:`~enum.Enum`-based models."""
+
     @classmethod
-    def from_json_data(cls, json_data: str):
+    def from_json_data(cls, _c, json_data: str):
         try:
             return cls(json_data)
         except ValueError as e:
@@ -111,8 +125,9 @@ class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
 
 class IntEnumAPIModel(JsonAPIModel[int], IntEnum, metaclass=_ABCEnumMeta):
     """Base class for int :class:`~enum.Enum`-based models."""
+
     @classmethod
-    def from_json_data(cls, json_data: int):
+    def from_json_data(cls, _c, json_data: int):
         try:
             return cls(int(json_data))
         except ValueError as e:
@@ -121,8 +136,9 @@ class IntEnumAPIModel(JsonAPIModel[int], IntEnum, metaclass=_ABCEnumMeta):
 
 class IntFlagEnumAPIModel(JsonAPIModel[int], IntFlag, metaclass=_ABCEnumMeta):  # type: ignore
     """Base class for :class:`~enum.IntFlag`-based models."""              # (type ignore necessary due to issue below:)
-    @classmethod                                                           # https://github.com/python/mypy/issues/9319
-    def from_json_data(cls, json_data: int):
+                                                                           # https://github.com/python/mypy/issues/9319
+    @classmethod
+    def from_json_data(cls, _c, json_data: int):
         try:
             return cls(int(json_data))
         except ValueError as e:
@@ -131,8 +147,9 @@ class IntFlagEnumAPIModel(JsonAPIModel[int], IntFlag, metaclass=_ABCEnumMeta):  
 
 class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=_ABCEnumMeta):
     """Base class for :class:`~enum.Flag`-based models."""
+
     @classmethod
-    def from_json_data(cls, json_data: int):
+    def from_json_data(cls, _c, json_data: int):
         try:
             return cls(json_data)
         except ValueError as e:

@@ -7,62 +7,74 @@ from typing import Optional, Iterable, Generic, Union
 import aiohttp
 
 from ..helpers import Response
-from ...models.user import User
 from .endpoint_abc import GETEndpoint, PATCHEndpoint
+from serpcord.utils.typeutils import SERPCORD_DEFAULT, OrDefault, OptionalOrDefault
 
 
-class GetCurrentUserEndpoint(GETEndpoint[User]):
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
+    from serpcord.models.user import BotUser
+
+
+class GetCurrentUserEndpoint(GETEndpoint["BotUser"]):
     """API Endpoint for retrieving the current user (i.e., the bot itself). A GET to
     ``[BASE_API_URL]/users/@me``."""
-    response: Optional[Response[User]]  #: Response object containing the bot's user (if successful).
+    response: Optional[Response["BotUser"]]  #: Response object containing the bot's user (if successful).
 
     def __init__(self):
         super().__init__(("users", "@me"), None)
 
-    async def parse_response(self, response: aiohttp.ClientResponse) -> User:
-        """Returns the current :class:`~.User` by parsing response data received from Discord.
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> "BotUser":
+        """Returns the current running bot's :class:`~.BotUser` by parsing response data received from Discord.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             response (:class:`aiohttp.ClientResponse`): Response data received from Discord to parse.
 
         Returns:
-            :class:`~.User`: The :class:`~.User` instance that resulted from parsing the response data, which should
-            correspond to the current user (i.e. the bot's user).
+            :class:`~.BotUser`: The :class:`~.BotUser` instance that resulted from parsing the response data, which
+            corresponds to the current user (i.e. the bot's user).
 
         See Also:
             :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
-        return await User.from_response(response)
+        from serpcord.models.user import BotUser
+        return await BotUser.from_response(client, response)
 
 
-class PatchCurrentUserEndpoint(PATCHEndpoint[User]):
+class PatchCurrentUserEndpoint(PATCHEndpoint["BotUser"]):
     """API Endpoint for changing the current user (i.e., the bot itself). A PATCH to
     ``[BASE_API_URL]/users/@me``.
 
     Args:
-        username (Optional[:class:`str`]): The bot user's new username. (``None`` to leave unchanged.)
-        avatar (Optional[Union[:class:`bytes`, :class:`io.IOBase`]]): The bot user's new avatar image.
-            (``None`` to leave unchanged.)
+        username (:class:`str`, optional): The bot user's new username. (Don't specify to leave unchanged.)
+        avatar (Optional[Union[:class:`bytes`, :class:`io.IOBase`]], optional): The bot user's new avatar image.
+            (Don't specify to leave unchanged; specify ``None`` to remove an existing avatar.)
     """
-    response: Optional[Response[User]]  #: Response object containing the modified user (if successful).
+    response: Optional[Response["BotUser"]]  #: Response object containing the modified user (if successful).
 
-    def __init__(self, *, username: Optional[str] = None, avatar: Optional[Union[bytes, io.IOBase]] = None):
+    def __init__(
+        self,
+        *, username: OrDefault[str] = SERPCORD_DEFAULT,
+        avatar: OptionalOrDefault[Union[bytes, io.IOBase]] = SERPCORD_DEFAULT
+    ):
         super().__init__(("users", "@me"), None)  # TODO: Image Data type
 
         self.sent_data = aiohttp.FormData()
 
-        if username is not None:
+        if username != SERPCORD_DEFAULT:
             self.sent_data.add_field("username", username)
-        if avatar is not None:
+        if avatar != SERPCORD_DEFAULT:
             self.sent_data.add_field("avatar", avatar)
 
-    async def parse_response(self, response: aiohttp.ClientResponse) -> User:
-        """Returns the modified user.
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> "BotUser":
+        """Returns the modified bot user.
 
         See Also:
             :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
-        return await User.from_response(response)
+        from serpcord.models.user import BotUser
+        return await BotUser.from_response(client, response)
 
 
 # class GetCurrentUserGuildsEndpoint(GETEndpoint[List[Guild]])  # TODO: implement guilds

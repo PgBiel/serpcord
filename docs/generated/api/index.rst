@@ -25,4 +25,5 @@ API Reference
    __sphinx_autodoc_module__serpcord.rest.requester
    __sphinx_autodoc_module__serpcord.utils.model
    __sphinx_autodoc_module__serpcord.utils.string
+   __sphinx_autodoc_module__serpcord.utils.typeutils
 

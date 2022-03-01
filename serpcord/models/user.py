@@ -1,5 +1,7 @@
+__all__ = ("User", "BotUser")
 import typing
-from typing import Optional, Dict, Type, Mapping, Any
+import io
+from typing import Optional, Dict, Type, Mapping, Any, Union
 
 from .apimodel import JsonAPIModel
 from .enums import Locale, UserFlags, UserPremiumType
@@ -7,12 +9,19 @@ from ..rest.cdn import BASE_CDN_URL
 from ..rest.enums import CDNImageFormats
 from .snowflake import Snowflake
 from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIJsonParseException
+from serpcord.rest.endpoint.user import PatchCurrentUserEndpoint
+from serpcord.utils.model import Updatable
+from serpcord.utils.typeutils import SERPCORD_DEFAULT, OrDefault, OptionalOrDefault
+
+if typing.TYPE_CHECKING:
+    from serpcord.botclient import BotClient
 
 
-class User(JsonAPIModel[Mapping[str, Any]]):
+class User(JsonAPIModel[Mapping[str, Any]], Updatable):
     """Represents a Discord User.
 
     Attributes:
+        client (:class:`~.BotClient`): The bot's active client instance.
         id (:class:`~.Snowflake`): The user's ID.
         username (:class:`str`): The user's username (non-unique).
         discriminator (:class:`str`): The user's four-digit tag (E.g. '1234' in 'username#1234').
@@ -72,7 +81,7 @@ class User(JsonAPIModel[Mapping[str, Any]]):
     """
 
     def __init__(
-            self, userid: Snowflake,
+            self, client: "BotClient", userid: Snowflake,
             *, username: str, discriminator: str,
             avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
             is_mfa_enabled: bool = False,
@@ -81,6 +90,7 @@ class User(JsonAPIModel[Mapping[str, Any]]):
             flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
             public_flags: UserFlags = UserFlags.NONE
     ):
+        self.client: "BotClient" = client
         self.id: Snowflake = userid
         self.username: str = username
         self.discriminator: str = discriminator
@@ -98,10 +108,11 @@ class User(JsonAPIModel[Mapping[str, Any]]):
         self.public_flags: UserFlags = public_flags
 
     @classmethod
-    def from_json_data(cls, json_data: Mapping[str, Any]):
+    def from_json_data(cls, client, json_data: Mapping[str, Any]):
         """Constructs a :class:`User` from received JSON data.
 
         Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
             json_data (Mapping[:class:`str`, Any]): The data to parse and construct a User instance with.
                 (Usually a :class:`dict`.)
 
@@ -124,14 +135,18 @@ class User(JsonAPIModel[Mapping[str, Any]]):
             "premium_type": UserPremiumType,
             "public_flags": UserFlags
         }
+        data = {
+            **json_data,
+            "client": client
+        }
         try:
             return cls(**dict(
                 (
                     key_map.get(k, k),
-                    typing.cast(Type[JsonAPIModel], v_).from_json_data(v)
+                    typing.cast(Type[JsonAPIModel], v_).from_json_data(client, v)
                     if (v_ := val_model_map.get(k)) and issubclass(v_, JsonAPIModel) else v
                 )
-                for k, v in json_data.items() if k in expected_keys
+                for k, v in data.items() if k in expected_keys
             ))
         except (TypeError, ValueError) as e:
             raise APIJsonParsedTypeMismatchException("Unexpected User JSON data received.") from e
@@ -154,7 +169,9 @@ class User(JsonAPIModel[Mapping[str, Any]]):
                 from serpcord.models.snowflake import Snowflake
                 from serpcord.models.user import User
                 from serpcord.rest.enums import CDNImageFormats
-                user = User(Snowflake(12345), username="xxx", discriminator="1234", avatar_hash="abcabcabc")
+                from serpcord.botclient import BotClient
+                bot = BotClient("123")
+                user = User(bot, Snowflake(12345), username="xxx", discriminator="1234", avatar_hash="abcabcabc")
             .. doctest:: avatar_url
 
                 >>> user.id.value
@@ -177,3 +194,53 @@ class User(JsonAPIModel[Mapping[str, Any]]):
         class_qname = self.__class__.__qualname__
         return f"{class_qname}({repr(self.id)}, username={repr(self.username)}, \
 discriminator={repr(self.discriminator)}, is_bot={repr(self.is_bot)}, is_system={repr(self.is_system)})"
+
+
+class BotUser(User):
+    """A special :class:`User` -derived class representing specifically the current active bot's user.
+    Besides :class:`User`'s members, it has a few extra methods.
+    """
+
+    async def modify(
+        self,
+        *, username: OrDefault[str] = SERPCORD_DEFAULT,
+        avatar: OptionalOrDefault[Union[bytes, io.IOBase]] = SERPCORD_DEFAULT
+    ) -> "BotUser":
+        """Modifies the running bot's user. (Has a lengthy ratelimit, so use with caution!)
+
+        Args:
+            username (:class:`str`, optional): The bot user's new username. (Don't specify to leave unchanged.)
+            avatar (Union[:class:`bytes`, :class:`io.IOBase`], optional): The bot user's new avatar image.
+                (Don't specify to leave unchanged; specify ``None`` to remove an existing avatar.)
+
+        Returns:
+            :class:`~.BotUser`: The modified bot user.
+        """
+        endpoint = PatchCurrentUserEndpoint(username=str(username), avatar=avatar)
+        new_bot_user = (await self.client.requester.request_endpoint(endpoint)).parsed_response
+        if new_bot_user:
+            self._update(new_bot_user)
+        return self
+
+    async def set_username(self, username: str) -> "BotUser":
+        """Modifies the running bot's user. Has a lengthy ratelimit, so use with caution!
+
+        Args:
+            username (:class:`str`): The bot user's new username.
+
+        Returns:
+            :class:`~.BotUser`: The modified bot user.
+        """
+        return await self.modify(username=str(username))
+
+    async def set_avatar(self, avatar: Optional[Union[bytes, io.IOBase]]) -> "BotUser":
+        """Modifies the running bot's avatar. Has a lengthy ratelimit, so use with caution!
+
+        Args:
+            avatar (Optional[Union[:class:`bytes`, :class:`io.IOBase`]]): The bot user's new avatar image.
+                (Specify ``None`` to remove an existing avatar.)
+
+        Returns:
+            :class:`~.BotUser`: The modified bot user.
+        """
+        return await self.modify(avatar=avatar)
