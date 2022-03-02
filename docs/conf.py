@@ -39,7 +39,8 @@ release = '0.0.1'
 extensions = [
     "sphinx.ext.autodoc", "sphinx.ext.doctest", "sphinxcontrib.napoleon",
     "sphinx.ext.intersphinx", "sphinx.ext.autosummary",
-    "attributetable"  # "autodocsumm"
+    "attributetable",  # "autodocsumm"
+    "autoapi.extension"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -85,3 +86,6 @@ intersphinx_mapping = {
 
 # Attributetable settings
 attributetable_autodoc_hook = True
+
+# autoapi settings
+autoapi_dirs = ["../serpcord"]

@@ -64,7 +64,6 @@ class RoleTags(JsonAPIModel[Mapping[str, Any]]):
         bot_id: Optional[Snowflake] = None, integration_id: Optional[Snowflake] = None,
         is_premium_subscriber: bool = False
     ):
-        print(f"DEBUG: {is_premium_subscriber=}")
         self.bot_id: Optional[Snowflake] = Snowflake(bot_id) if bot_id is not None else None
         self.integration_id: Optional[Snowflake] = Snowflake(integration_id) if integration_id is not None else None
         self.is_premium_subscriber: bool = bool(is_premium_subscriber)

@@ -32,6 +32,7 @@ if typing.TYPE_CHECKING:
     from serpcord.botclient import BotClient
 
 
+#: :meta private:
 class _ABCEnumMeta(EnumMeta, abc.ABCMeta):
     pass
 
@@ -179,9 +180,9 @@ class Updatable:
 
                 from serpcord import BotClient, Role, Snowflake, PermissionFlags
                 bot = BotClient("123")
-                role1 = Role(bot, Snowflake(123), name="Role A", color_dec=0, is_hoisted=False, position=0, \
+                role1 = Role(bot, Snowflake(123), name="Role A", color_int=0, is_hoisted=False, position=0, \
 permissions=PermissionFlags.NONE, is_managed=False, is_mentionable=True)
-                role2 = Role(bot, Snowflake(123), name="Role B", color_dec=0x00FF00, is_hoisted=True, position=3, \
+                role2 = Role(bot, Snowflake(123), name="Role B", color_int=0x00FF00, is_hoisted=True, position=3, \
 permissions=PermissionFlags.MANAGE_ROLES, is_managed=False, is_mentionable=False)
             .. doctest::
 

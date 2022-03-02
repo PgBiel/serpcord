@@ -52,7 +52,8 @@
 .. rubric:: Modules
 
 .. autosummary::
-   :template: custom-module-template.rst
+   :toctree:
+   :template: module.rst
    :recursive:
 {% for item in modules %}
    {{ item }}
