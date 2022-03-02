@@ -1,6 +1,6 @@
 from .enums import ChannelType
 from .snowflake import Snowflake
-from .apimodel import JsonAPIModel
+from .model_abc import JsonAPIModel
 from typing import Mapping, Any, Optional
 
 

@@ -16,7 +16,8 @@ utils.model
 .. autosummary::
    :toctree:
 
-   Updatable
    _get_annotation_port
    _typing_generic_converter
    init_model_from_mapping_json_data
+   parse_json_list_response
+   parse_json_response

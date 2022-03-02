@@ -1,7 +1,7 @@
 import datetime
-from .apimodel import JsonAPIModel
+from .model_abc import JsonAPIModel
 from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException
-from typing import ClassVar
+from typing import ClassVar, Union
 
 _datetime = datetime.datetime
 
@@ -25,12 +25,13 @@ class Snowflake(JsonAPIModel[int]):
         from serpcord.models import Snowflake
         sample_snowflake = Snowflake(value=613425648685547541)
     """
+    __slots__ = ("value",)
 
     DISCORD_EPOCH: ClassVar[int] = 1420070400  # timestamp in seconds (first second of 2015)
     """Discord's epoch Unix timestamp (in seconds), equivalent to the first second of 2015."""
 
-    def __init__(self, value: int):
-        self.value: int = value
+    def __init__(self, value: Union[int, "Snowflake"]):
+        self.value: int = int(value)
 
     @classmethod
     def from_json_data(cls, _c, json_data: int):

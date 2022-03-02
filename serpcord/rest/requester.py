@@ -3,7 +3,7 @@ import typing
 import asyncio
 from typing import Generic, Optional, ClassVar
 
-from ..utils import process_token
+from ..utils.string import process_token
 from .enums import HTTPDataType
 from .helpers import Response
 from .endpoint.endpoint_abc import Endpoint

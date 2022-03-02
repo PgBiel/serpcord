@@ -1,11 +1,14 @@
-__all__ = ("init_model_from_mapping_json_data", "Updatable")
+__all__ = ("init_model_from_mapping_json_data", "parse_json_response", "parse_json_list_response")
 
+import json
 import typing
 import inspect
 import collections
 
+import aiohttp
+
 from serpcord.exceptions import APIJsonParsedTypeMismatchException, APIJsonParseException, APIDataParseException
-from serpcord.models.apimodel import JsonAPIModel
+from serpcord.models.model_abc import JsonAPIModel
 from typing import Optional, TypeVar, Mapping, Any, Type, Dict, Callable, List, Iterable, Union, Tuple
 
 T = TypeVar("T", bound=JsonAPIModel[Mapping[str, Any]])
@@ -14,7 +17,7 @@ if typing.TYPE_CHECKING:
     from serpcord.botclient import BotClient
 
 
-def _get_annotation_port(obj, *, globals=None, locals=None, eval_str=False):
+def _get_annotation_port(obj, *, globals=None, locals=None, eval_str=False, merge_globals_locals=False):
     """Compute the annotations dict for an object.
     obj may be a callable, class, or module.
     Passing in an object of any other type raises TypeError.
@@ -115,8 +118,15 @@ def _get_annotation_port(obj, *, globals=None, locals=None, eval_str=False):
 
     if globals is None:
         globals = obj_globals
+    elif merge_globals_locals:  # NOTE: I changed the port code to include merging of globals/locals.
+        if isinstance(obj_globals, collections.Mapping):
+            globals = {**obj_globals, **globals}
+
     if locals is None:
         locals = obj_locals
+    elif merge_globals_locals:
+        if isinstance(obj_locals, collections.Mapping):
+            locals = {**obj_locals, **locals}
 
     return_value = {key:
         value if not isinstance(value, str) else eval(value, globals, locals)
@@ -195,7 +205,8 @@ def _typing_generic_converter(T: Any, *, recursive: bool = True) -> Union[type, 
 
 def init_model_from_mapping_json_data(
     cls: Type[T], client: "BotClient", json_data: Mapping[str, Any],
-    *, rename: Optional[Mapping[str, str]] = None, type_check_types: Union[bool, Iterable[Any]] = False
+    *, rename: Optional[Mapping[str, str]] = None, type_check_types: Union[bool, Iterable[Any]] = False,
+    extra_globals: Optional[Mapping[str, Any]] = None, extra_locals: Optional[Mapping[str, Any]] = None
 ) -> T:
     """Generic function for instantiating :class:`~.JsonAPIModel` subclasses
     from given JSON :class:`dict` (Mapping) data. Works by taking keys from the received JSON data and passing them as
@@ -230,6 +241,13 @@ def init_model_from_mapping_json_data(
                 of type ``Union[A, B, C]``, the check will accept values of type ``A``, ``B``, or ``C``, and error
                 for other types; for a parameter of type ``Optional[T]``, the check will accept either ``None`` or
                 a value of type ``T``, and error for other types.
+        extra_globals (Optional[Mapping[:class:`str`, Any]), optional): Extra global vars to consider when parsing
+            ``cls.__init__`` 's annotations (if one or more are strings). Note that :class:`~.BotClient` is included
+            by default. (Defaults to ``None``, meaning no extra global variables - other than :class:`~.BotClient` -
+            will be included for the annotation type parsing.)
+        extra_locals (Optional[Mapping[:class:`str`, Any]], optional): Extra local vars to consider when parsing
+            ``cls.__init__`` 's annotations (if one or more are strings). (Defaults to ``None``, meaning no extra local
+            variables will be included for the annotation type parsing.)
 
     Returns:
         ``T``: The constructed model (instance of ``cls``, constructed through ``cls.__init__``).
@@ -251,6 +269,9 @@ def init_model_from_mapping_json_data(
             PermissionOverwrite(target_id=Snowflake(value=123), overwrite_type=<PermissionOverwriteType.MEMBER: 1>, \
 allow=<PermissionFlags.NONE: 0>, deny=<PermissionFlags.CONNECT|BAN_MEMBERS: 1048580>)
     """
+    from serpcord.botclient import BotClient  # lazy import to avoid cyclic import
+    actual_extra_globals: Dict[str, Any] = {**(extra_globals or dict()), "BotClient": BotClient}
+
     if not isinstance(cls, type):
         raise TypeError("'cls' must be a class.")
 
@@ -275,7 +296,9 @@ got {type(json_data).__qualname__})."
     expected_keys = list(params.keys())
 
     # Param annotations (form { param_name: expected_type })
-    annotations: Dict[str, Any] = _get_annotation_port(init_method, eval_str=True)
+    annotations: Dict[str, Any] = _get_annotation_port(
+        init_method, eval_str=True, globals=actual_extra_globals, locals=extra_locals, merge_globals_locals=True
+    )
 
     # key/values given through json_data (and parsed/renamed)
     received_params: Dict[str, Any] = dict()
@@ -400,13 +423,45 @@ got {type(json_data).__qualname__})."
         raise APIJsonParseException(f"Unexpected {cls.__qualname__} JSON data received.") from e
 
 
-TSelf = typing.TypeVar("TSelf", bound="Updatable")
-class Updatable:
-    """Helper class that allows subclasses' instances to copy other instances' data."""
-    def _update(self: TSelf, other: TSelf):
-        """Update this instance by replacing its data with another instance's (using solely ``__dict__``).
+async def parse_json_response(response: aiohttp.ClientResponse) -> typing.Any:
+    """Helper function for parsing a generic JSON response, using :mod:`json`.
 
-        Args:
-            other: Other instance from which data should be copied to the current instance.
-        """
-        self.__dict__.update(other.__dict__)
+    Args:
+        response (:class:`aiohttp.ClientResponse`): The response object from which the JSON data should be extracted.
+
+    Returns:
+        Any: The parsed JSON data (using :func:`json.loads`). (May be any primitive type.)
+
+    Raises:
+        :exc:`APIJsonParseException`: If the JSON data received was invalid (or no such data was received).
+    """
+    try:
+        return await response.json()
+    except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+        raise APIJsonParseException("Malformed/non-JSON data received.") from e
+
+
+TJsonAPIModel = typing.TypeVar("TJsonAPIModel", bound=JsonAPIModel)
+async def parse_json_list_response(
+    cls: Type[TJsonAPIModel], client: "BotClient", response: aiohttp.ClientResponse
+) -> List[TJsonAPIModel]:
+    """Helper function for parsing received JSON data into a list of instances of a certain :class:`~.JsonAPIModel`
+    subclass.
+
+    Args:
+        cls (Type[``TJsonAPIModel``]): The class of the desired model (must subclass :class:`~.JsonAPIModel`).
+        client (:class:`~.BotClient`): The bot's active client instance.
+        response (:class:`aiohttp.ClientResponse`): The response object from which the JSON data should be extracted.
+
+    Returns:
+        List[``TJsonAPIModel``]: List of instances of `cls` parsed from the received JSON data (if it is a list of
+        valid `cls` data).
+
+    Raises:
+        :exc:`APIJsonParseException`: If the JSON data received was invalid (or no such data was received).
+        :exc:`APIJsonParsedTypeMismatchException`: If the JSON data received was not a list.
+    """
+    resp = await parse_json_response(response)
+    if not isinstance(resp, collections.Iterable):
+        raise APIJsonParsedTypeMismatchException("JSON received wasn't a list.")
+    return [cls.from_json_data(client, x) for x in resp]

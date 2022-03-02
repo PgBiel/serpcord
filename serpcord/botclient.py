@@ -2,7 +2,7 @@ import asyncio
 
 import aiohttp
 from .rest.requester import Requester
-from .utils import process_token
+from .utils.string import process_token
 
 
 class BotClient:

@@ -3,14 +3,13 @@ import typing
 import io
 from typing import Optional, Dict, Type, Mapping, Any, Union
 
-from .apimodel import JsonAPIModel
+from .model_abc import JsonAPIModel, Updatable
 from .enums import Locale, UserFlags, UserPremiumType
 from ..rest.cdn import BASE_CDN_URL
 from ..rest.enums import CDNImageFormats
 from .snowflake import Snowflake
 from ..exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIJsonParseException
 from serpcord.rest.endpoint.user import PatchCurrentUserEndpoint
-from serpcord.utils.model import Updatable
 from serpcord.utils.typeutils import SERPCORD_DEFAULT, OrDefault, OptionalOrDefault
 
 if typing.TYPE_CHECKING:
@@ -43,7 +42,7 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
 
                 This attribute isn't normally accessible to bots (and defaults to ``None``).
 
-        accent_color_dec (Optional[:class:`int`]): The user's banner color, as a decimal representation of a hex color.
+        accent_color_int (Optional[:class:`int`]): The user's banner color, as an integer representation of a hex color.
             ``None`` if they are not using a banner.
 
             .. warning::
@@ -79,33 +78,37 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
 
         public_flags (:class:`~.UserFlags`): The User's public flags. (Refer to :class:`~.UserFlags` for a list.)
     """
+    __slots__ = (
+        "client", "id", "username", "discriminator", "avatar_hash", "is_bot", "is_system", "is_mfa_enabled",
+        "banner_hash", "accent_color_int", "locale", "is_verified", "email", "flags", "premium_type", "public_flags"
+    )
 
     def __init__(
-            self, client: "BotClient", userid: Snowflake,
-            *, username: str, discriminator: str,
-            avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
-            is_mfa_enabled: bool = False,
-            banner_hash: Optional[str] = None, accent_color_dec: Optional[int] = None,
-            locale: Locale = Locale.EN_US, is_verified: bool = False, email: Optional[str] = None,
-            flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
-            public_flags: UserFlags = UserFlags.NONE
+        self, client: "BotClient", userid: Snowflake,
+        *, username: str, discriminator: str,
+        avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
+        is_mfa_enabled: bool = False,
+        banner_hash: Optional[str] = None, accent_color_int: Optional[int] = None,
+        locale: Locale = Locale.EN_US, is_verified: bool = False, email: Optional[str] = None,
+        flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
+        public_flags: UserFlags = UserFlags.NONE
     ):
         self.client: "BotClient" = client
-        self.id: Snowflake = userid
-        self.username: str = username
-        self.discriminator: str = discriminator
-        self.avatar_hash: Optional[str] = avatar_hash
-        self.is_bot: bool = is_bot
-        self.is_system: bool = is_system
-        self.is_mfa_enabled: bool = is_mfa_enabled
-        self.banner_hash: Optional[str] = banner_hash
-        self.accent_color_dec: Optional[int] = accent_color_dec
+        self.id: Snowflake = Snowflake(userid)
+        self.username: str = str(username)
+        self.discriminator: str = str(discriminator)
+        self.avatar_hash: Optional[str] = str(avatar_hash) if avatar_hash is not None else None
+        self.is_bot: bool = bool(is_bot)
+        self.is_system: bool = bool(is_system)
+        self.is_mfa_enabled: bool = bool(is_mfa_enabled)
+        self.banner_hash: Optional[str] = str(banner_hash) if banner_hash is not None else None
+        self.accent_color_int: Optional[int] = int(accent_color_int) if accent_color_int is not None else None
         self.locale: Locale = locale
-        self.is_verified: bool = is_verified
-        self.email: Optional[str] = email
-        self.flags: UserFlags = flags
-        self.premium_type: UserPremiumType = premium_type
-        self.public_flags: UserFlags = public_flags
+        self.is_verified: bool = bool(is_verified)
+        self.email: Optional[str] = str(email) if email is not None else None
+        self.flags: UserFlags = UserFlags(flags)
+        self.premium_type: UserPremiumType = UserPremiumType(premium_type)
+        self.public_flags: UserFlags = UserFlags(public_flags)
 
     @classmethod
     def from_json_data(cls, client, json_data: Mapping[str, Any]):
@@ -120,12 +123,12 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
             :exc:`APIJsonParsedTypeMismatchException`: If the given data wasn't valid user data.
         """
         expected_keys = [
-            "id", "username", "discriminator", "avatar", "bot", "system", "mfa_enabled", "banner", "accent", "color",
+            "id", "username", "discriminator", "avatar", "bot", "system", "mfa_enabled", "banner", "accent_color",
             "locale", "verified", "email", "flags", "premium_type", "public", "flags"
         ]
         key_map = {
             "id": "userid", "avatar": "avatar_hash", "bot": "is_bot", "system": "is_system",
-            "mfa_enabled": "is_mfa_enabled", "banner": "banner_hash", "accent_color": "accent_color_dec",
+            "mfa_enabled": "is_mfa_enabled", "banner": "banner_hash", "accent_color": "accent_color_int",
             "verified": "is_verified"
         }
         val_model_map = {
@@ -192,14 +195,15 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
 
     def __repr__(self):
         class_qname = self.__class__.__qualname__
-        return f"{class_qname}({repr(self.id)}, username={repr(self.username)}, \
-discriminator={repr(self.discriminator)}, is_bot={repr(self.is_bot)}, is_system={repr(self.is_system)})"
+        return f"<{class_qname} id={repr(self.id)}, username={repr(self.username)}, \
+discriminator={repr(self.discriminator)}, is_bot={repr(self.is_bot)}, is_system={repr(self.is_system)}>"
 
 
 class BotUser(User):
     """A special :class:`User` -derived class representing specifically the current active bot's user.
     Besides :class:`User`'s members, it has a few extra methods.
     """
+    __slots__ = ()  # same attrs as User's
 
     async def modify(
         self,

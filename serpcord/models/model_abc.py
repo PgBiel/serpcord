@@ -1,5 +1,6 @@
 import abc
 import typing
+import copy
 import json
 from enum import Enum, EnumMeta, Flag, IntEnum, IntFlag
 from typing import TypeVar, Mapping, Any, Optional
@@ -37,6 +38,7 @@ class _ABCEnumMeta(EnumMeta, abc.ABCMeta):
 
 class APIModel(abc.ABC):
     """Abstract class for API Models."""
+    __slots__ = ()
 
     @classmethod
     @abc.abstractmethod
@@ -64,6 +66,7 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
     Requires one Generic parameter, :obj:`TParsedJsonType`, which indicates which JSON data type
     is required to construct this model (e.g. :class:`~.Snowflake` requires an :class:`int`; :class:`~.User` requires a
     :class:`dict`; and so on."""
+    __slots__ = ()
 
     @classmethod
     async def from_response(
@@ -154,3 +157,52 @@ class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=_ABCEnumMeta):
             return cls(json_data)
         except ValueError as e:
             raise APIJsonParsedTypeMismatchException("Invalid Enum value received.") from e
+
+
+TSelf = typing.TypeVar("TSelf", bound="Updatable")
+
+
+class Updatable:
+    """Helper class that allows subclasses' instances to copy other instances' data."""
+    __slots__ = ()
+
+    def _update(self: TSelf, other: TSelf, *, deepcopy: bool = False):
+        """Update this instance by replacing its data with another instance's (using solely
+        ``__dict__`` and ``__slots__``).
+
+        Args:
+            other: Other instance from which data should be copied to the current instance.
+            deepcopy (:class:`bool`, optional): If ``True``, `other` will be deepcopied before proceeding.
+
+        Examples:
+            .. testsetup::
+
+                from serpcord import BotClient, Role, Snowflake, PermissionFlags
+                bot = BotClient("123")
+                role1 = Role(bot, Snowflake(123), name="Role A", color_dec=0, is_hoisted=False, position=0, \
+permissions=PermissionFlags.NONE, is_managed=False, is_mentionable=True)
+                role2 = Role(bot, Snowflake(123), name="Role B", color_dec=0x00FF00, is_hoisted=True, position=3, \
+permissions=PermissionFlags.MANAGE_ROLES, is_managed=False, is_mentionable=False)
+            .. doctest::
+
+                >>> role1
+                <Role id=Snowflake(value=123), name='Role A', is_hoisted=False, is_managed=False>
+                >>> role2
+                <Role id=Snowflake(value=123), name='Role B', is_hoisted=True, is_managed=False>
+                >>> role1._update(role2)  # copies role2's references to role1
+                >>> role1
+                <Role id=Snowflake(value=123), name='Role B', is_hoisted=True, is_managed=False>
+        """
+        actual_other = copy.deepcopy(other) if deepcopy else other
+        dict_from = getattr(self, "__dict__", None)
+        dict_to = getattr(actual_other, "__dict__", None)
+        if dict_from and dict_to:  # update dicts
+            self.__dict__.update(actual_other.__dict__)
+
+        slots_from: typing.List[str] = []  # copying slots, if there are any (they don't show up in __dict__)
+        for cls_from in self.__class__.__mro__:
+            slots_from += getattr(cls_from, "__slots__", tuple())
+
+        for slot in slots_from:
+            if hasattr(self, slot) and hasattr(actual_other, slot):
+                setattr(self, slot, getattr(actual_other, slot))

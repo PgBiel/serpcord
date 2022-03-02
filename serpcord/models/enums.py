@@ -1,6 +1,6 @@
 from enum import Flag, Enum
 
-from .apimodel import StrEnumAPIModel, IntEnumAPIModel, FlagEnumAPIModel, IntFlagEnumAPIModel
+from .model_abc import StrEnumAPIModel, IntEnumAPIModel, FlagEnumAPIModel, IntFlagEnumAPIModel
 
 
 class Locale(StrEnumAPIModel):
