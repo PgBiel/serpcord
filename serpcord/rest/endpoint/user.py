@@ -39,7 +39,7 @@ class GetCurrentUserEndpoint(GETEndpoint["BotUser"]):
             :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
         from serpcord.models.user import BotUser
-        return await BotUser.from_response(client, response)
+        return await BotUser._from_response(client, response)
 
 
 class PatchCurrentUserEndpoint(PATCHEndpoint["BotUser"]):
@@ -74,7 +74,7 @@ class PatchCurrentUserEndpoint(PATCHEndpoint["BotUser"]):
             :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
         """
         from serpcord.models.user import BotUser
-        return await BotUser.from_response(client, response)
+        return await BotUser._from_response(client, response)
 
 
 # class GetCurrentUserGuildsEndpoint(GETEndpoint[List[Guild]])  # TODO: implement guilds

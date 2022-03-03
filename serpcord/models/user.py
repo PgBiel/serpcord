@@ -3,7 +3,7 @@ import typing
 import io
 from typing import Optional, Dict, Type, Mapping, Any, Union
 
-from .model_abc import JsonAPIModel, Updatable
+from .model_abc import JsonAPIModel, Updatable, HasId
 from .enums import Locale, UserFlags, UserPremiumType
 from ..rest.cdn import BASE_CDN_URL
 from ..rest.enums import CDNImageFormats
@@ -16,7 +16,7 @@ if typing.TYPE_CHECKING:
     from serpcord.botclient import BotClient
 
 
-class User(JsonAPIModel[Mapping[str, Any]], Updatable):
+class User(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
     """Represents a Discord User.
 
     Attributes:
@@ -79,20 +79,18 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
         public_flags (:class:`~.UserFlags`): The User's public flags. (Refer to :class:`~.UserFlags` for a list.)
     """
     __slots__ = (
-        "client", "id", "username", "discriminator", "avatar_hash", "is_bot", "is_system", "is_mfa_enabled",
+        "client", "username", "discriminator", "avatar_hash", "is_bot", "is_system", "is_mfa_enabled",
         "banner_hash", "accent_color_int", "locale", "is_verified", "email", "flags", "premium_type", "public_flags"
     )
 
-    def __init__(
-        self, client: "BotClient", userid: Snowflake,
-        *, username: str, discriminator: str,
-        avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
-        is_mfa_enabled: bool = False,
-        banner_hash: Optional[str] = None, accent_color_int: Optional[int] = None,
-        locale: Locale = Locale.EN_US, is_verified: bool = False, email: Optional[str] = None,
-        flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
-        public_flags: UserFlags = UserFlags.NONE
-    ):
+    def __init__(self, client: "BotClient", userid: Snowflake,
+                 *, username: str, discriminator: str,
+                 avatar_hash: Optional[str] = None, is_bot: bool = False, is_system: bool = False,
+                 is_mfa_enabled: bool = False,
+                 banner_hash: Optional[str] = None, accent_color_int: Optional[int] = None,
+                 locale: Locale = Locale.EN_US, is_verified: bool = False, email: Optional[str] = None,
+                 flags: UserFlags = UserFlags.NONE, premium_type: UserPremiumType = UserPremiumType.NONE,
+                 public_flags: UserFlags = UserFlags.NONE):
         self.client: "BotClient" = client
         self.id: Snowflake = Snowflake(userid)
         self.username: str = str(username)
@@ -111,7 +109,7 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
         self.public_flags: UserFlags = UserFlags(public_flags)
 
     @classmethod
-    def from_json_data(cls, client, json_data: Mapping[str, Any]):
+    def _from_json_data(cls, client, json_data: Mapping[str, Any]):
         """Constructs a :class:`User` from received JSON data.
 
         Args:
@@ -146,7 +144,7 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable):
             return cls(**dict(
                 (
                     key_map.get(k, k),
-                    typing.cast(Type[JsonAPIModel], v_).from_json_data(client, v)
+                    typing.cast(Type[JsonAPIModel], v_)._from_json_data(client, v)
                     if (v_ := val_model_map.get(k)) and issubclass(v_, JsonAPIModel) else v
                 )
                 for k, v in data.items() if k in expected_keys

@@ -10,6 +10,10 @@ import aiohttp
 from serpcord.exceptions.dataparseexc import APIJsonParsedTypeMismatchException, APIDataParseException, \
     APIJsonParseException
 
+
+if typing.TYPE_CHECKING:
+    from .snowflake import Snowflake
+
 TSelfAPIModel = TypeVar("TSelfAPIModel", bound="APIModel")
 """Type var denoting `self` in :class:`APIModel` methods, or an instance of the own subclass
 in class methods.
@@ -43,7 +47,7 @@ class APIModel(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    async def from_response(
+    async def _from_response(
         cls: typing.Type[TSelfAPIModel], client: "BotClient", response: aiohttp.ClientResponse
     ) -> TSelfAPIModel:
         """Abstract method to convert response data received from the Discord API to an instance of this model.
@@ -58,7 +62,7 @@ class APIModel(abc.ABC):
 
         Raises:
             :exc:`APIDataParseException`: If the raw data could not be properly parsed."""
-        raise NotImplementedError
+        pass
 
 
 class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
@@ -70,7 +74,7 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
     __slots__ = ()
 
     @classmethod
-    async def from_response(
+    async def _from_response(
         cls: typing.Type[TSelfJsonAPIModel], client: "BotClient", response: aiohttp.ClientResponse
     ) -> TSelfJsonAPIModel:
         """Method to convert response data received from the Discord API to an instance of this model.
@@ -91,13 +95,13 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
             :exc:`APIDataParseException`: If the raw data could not be properly parsed.
         """
         try:
-            return cls.from_json_data(client, await response.json())
+            return cls._from_json_data(client, await response.json())
         except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
             raise APIJsonParseException("Malformed/non-JSON data received.") from e
 
     @classmethod
     @abc.abstractmethod
-    def from_json_data(
+    def _from_json_data(
         cls: typing.Type[TSelfJsonAPIModel], client: "BotClient", json_data: TParsedJsonType
     ) -> TSelfJsonAPIModel:
         """Abstract method to convert parsed JSON data from the Discord API to an instance of this model.
@@ -113,14 +117,14 @@ class JsonAPIModel(APIModel, abc.ABC, typing.Generic[TParsedJsonType]):
         Raises:
             :exc:`APIJsonParseException`: If the JSON received was invalid, or didn't match the expected type.
         """
-        raise NotImplementedError
+        pass
 
 
 class StrEnumAPIModel(JsonAPIModel[str], Enum, metaclass=_ABCEnumMeta):
     """Base class for string :class:`~enum.Enum`-based models."""
 
     @classmethod
-    def from_json_data(cls, _c, json_data: str):
+    def _from_json_data(cls, _c, json_data: str):
         try:
             return cls(json_data)
         except ValueError as e:
@@ -131,7 +135,7 @@ class IntEnumAPIModel(JsonAPIModel[int], IntEnum, metaclass=_ABCEnumMeta):
     """Base class for int :class:`~enum.Enum`-based models."""
 
     @classmethod
-    def from_json_data(cls, _c, json_data: int):
+    def _from_json_data(cls, _c, json_data: int):
         try:
             return cls(int(json_data))
         except ValueError as e:
@@ -142,7 +146,7 @@ class IntFlagEnumAPIModel(JsonAPIModel[int], IntFlag, metaclass=_ABCEnumMeta):  
     """Base class for :class:`~enum.IntFlag`-based models."""              # (type ignore necessary due to issue below:)
                                                                            # https://github.com/python/mypy/issues/9319
     @classmethod
-    def from_json_data(cls, _c, json_data: int):
+    def _from_json_data(cls, _c, json_data: int):
         try:
             return cls(int(json_data))
         except ValueError as e:
@@ -153,7 +157,7 @@ class FlagEnumAPIModel(JsonAPIModel[int], Flag, metaclass=_ABCEnumMeta):
     """Base class for :class:`~enum.Flag`-based models."""
 
     @classmethod
-    def from_json_data(cls, _c, json_data: int):
+    def _from_json_data(cls, _c, json_data: int):
         try:
             return cls(json_data)
         except ValueError as e:
@@ -207,3 +211,10 @@ permissions=PermissionFlags.MANAGE_ROLES, is_managed=False, is_mentionable=False
         for slot in slots_from:
             if hasattr(self, slot) and hasattr(actual_other, slot):
                 setattr(self, slot, getattr(actual_other, slot))
+
+
+class HasId:
+    """Represents a model that is uniquely identified by their id attribute."""
+    __slots__ = ("id",)
+
+    id: "Snowflake"

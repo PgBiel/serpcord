@@ -1,8 +1,8 @@
 import typing
-from .model_abc import JsonAPIModel, Updatable
+from .model_abc import JsonAPIModel, Updatable, HasId
 from .snowflake import Snowflake
 from .enums import PermissionFlags, PermissionOverwriteType
-from serpcord.utils.model import init_model_from_mapping_json_data
+from serpcord.utils.model import _init_model_from_mapping_json_data
 from typing import Mapping, Any, Optional
 
 
@@ -36,11 +36,10 @@ class PermissionOverwrite(JsonAPIModel[Mapping[str, Any]]):
         self.deny: PermissionFlags = PermissionFlags(deny)
 
     @classmethod
-    def from_json_data(cls, client, json_data: Mapping[str, Any]):
-        return init_model_from_mapping_json_data(
-            cls, client, json_data, rename=dict(id="target_id", type="overwrite_type"),
-            type_check_types=True
-        )
+    def _from_json_data(cls, client, json_data: Mapping[str, Any]):
+        return _init_model_from_mapping_json_data(cls, client, json_data,
+                                                  rename=dict(id="target_id", type="overwrite_type"),
+                                                  type_check_types=True)
 
     def __repr__(self):
         return f"{self.__class__.__qualname__}(target_id={self.target_id!r}, overwrite_type={self.overwrite_type!r}, \
@@ -69,14 +68,13 @@ class RoleTags(JsonAPIModel[Mapping[str, Any]]):
         self.is_premium_subscriber: bool = bool(is_premium_subscriber)
 
     @classmethod
-    def from_json_data(cls, client, json_data):
-        return init_model_from_mapping_json_data(
-            cls, client, json_data, rename=dict(premium_subscriber="is_premium_subscriber"),
-            type_check_types=False
-        )
+    def _from_json_data(cls, client, json_data):
+        return _init_model_from_mapping_json_data(cls, client, json_data,
+                                                  rename=dict(premium_subscriber="is_premium_subscriber"),
+                                                  type_check_types=True)
 
 
-class Role(JsonAPIModel[Mapping[str, Any]], Updatable):
+class Role(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
     """Represents a named set of permissions assigned to groups of members.
 
     Attributes:
@@ -116,7 +114,7 @@ class Role(JsonAPIModel[Mapping[str, Any]], Updatable):
             info), if any are present; ``None`` otherwise (default).
     """
     __slots__ = (
-        "client", "id", "name", "color_int", "is_hoisted", "icon_hash", "unicode_emoji", "position", "permissions",
+        "client", "name", "color_int", "is_hoisted", "icon_hash", "unicode_emoji", "position", "permissions",
         "is_managed", "is_mentionable", "tags", "guild"
     )
 
@@ -142,20 +140,16 @@ class Role(JsonAPIModel[Mapping[str, Any]], Updatable):
         self.guild = None  # TODO
 
     @classmethod
-    def from_json_data(cls, client: "BotClient", json_data: Mapping[str, Any]) -> "Role":
+    def _from_json_data(cls, client: "BotClient", json_data: Mapping[str, Any]) -> "Role":
         """Converts JSON data received from the API into a valid :class:`Role` instance. For internal use only.
 
         See Also:
             :meth:`JsonAPIModel.from_json_data`
         """
-        return init_model_from_mapping_json_data(
-            cls, client, json_data,
-            rename=dict(
-                id="roleid", color="color_int", hoist="is_hoisted", icon="icon_hash",
-                managed="is_managed", mentionable="is_mentionable"
-            ),
-            type_check_types=True
-        )
+        return _init_model_from_mapping_json_data(cls, client, json_data, rename=dict(
+            id="roleid", color="color_int", hoist="is_hoisted", icon="icon_hash",
+            managed="is_managed", mentionable="is_mentionable"
+        ), type_check_types=True)
 
     def __repr__(self):
         return f"<{self.__class__.__qualname__} id={self.id!r}, name={self.name!r}, is_hoisted={self.is_hoisted!r}, \

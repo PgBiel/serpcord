@@ -34,7 +34,7 @@ class Snowflake(JsonAPIModel[int]):
         self.value: int = int(value)
 
     @classmethod
-    def from_json_data(cls, _c, json_data: int):
+    def _from_json_data(cls, _c, json_data: int):
         """Generates a Snowflake from parsed JSON data (int), by instantiating with ``Snowflake(int(json_data))``.
 
         Args:
@@ -152,3 +152,11 @@ class Snowflake(JsonAPIModel[int]):
 
     def __int__(self):
         return self.value
+
+    def __eq__(self, other):
+        if not isinstance(other, Snowflake):
+            return NotImplemented
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash(self.value)
