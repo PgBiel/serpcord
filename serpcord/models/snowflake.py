@@ -24,6 +24,7 @@ class Snowflake(JsonAPIModel[int]):
         import datetime
         from serpcord.models import Snowflake
         sample_snowflake = Snowflake(value=613425648685547541)
+        client = None
     """
     __slots__ = ("value",)
 
@@ -46,6 +47,14 @@ class Snowflake(JsonAPIModel[int]):
 
         Raises:
             :exc:`APIJsonParsedTypeMismatchException`: If the given JSON data isn't an :class:`int`.
+
+        Examples:
+            .. doctest::
+
+                >>> Snowflake._from_json_data(client, 500)
+                Snowflake(value=500)
+                >>> Snowflake._from_json_data(client, "500")
+                Snowflake(value=500)
         """
         try:
             return cls(int(json_data))

@@ -14,6 +14,7 @@ Sphinx = "^4.4.0"
 sphinxcontrib-napoleon = "^0.7"
 sphinx-autodoc = {git = "https://github.com/PgBiel/sphinx-autodoc.git"}
 sphinx-autoapi = "^1.8.4"
+mypy = "^0.931"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

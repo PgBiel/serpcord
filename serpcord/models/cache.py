@@ -4,10 +4,11 @@ import collections.abc
 from .model_abc import HasId
 from .snowflake import Snowflake
 from serpcord.utils.typeutils import SERPCORD_DEFAULT, OrDefault
-from typing import Optional, Mapping, Generic, MutableMapping, Dict, Iterable, Union
+from typing import Optional, Mapping, Generic, MutableMapping, Dict, Iterable, Union, Any
 
 
 T = typing.TypeVar("T", bound=HasId)
+D = typing.TypeVar("D")
 if typing.TYPE_CHECKING:
     MutableMappingSnowflakeT = MutableMapping[Snowflake, T]
 else:
@@ -26,7 +27,10 @@ class SnowflakeCache(MutableMappingSnowflakeT, Generic[T]):
         return len(self._inner_dict)
 
     def __getitem__(self, item: Union[int, Snowflake]) -> T:
-        return self._inner_dict[Snowflake(item)]
+        try:
+            return self._inner_dict[Snowflake(item)]
+        except (TypeError, ValueError):
+            return self._inner_dict[item]  # so it remains a KeyError
 
     def __delitem__(self, key: Union[int, Snowflake]):
         del self._inner_dict[Snowflake(key)]
@@ -36,13 +40,16 @@ class SnowflakeCache(MutableMappingSnowflakeT, Generic[T]):
         if value.id == skey:
             self._inner_dict[skey] = value
         else:
-            raise ValueError("Specified value's id does not match the key.")
+            raise ValueError("Specified value's id does not match the given key.")
 
     def __iter__(self):
         return self._inner_dict.__iter__()
 
-    # def __contains__(self, key: Union[int, Snowflake]):
-    #     return key in self._inner_dict
+    def __contains__(self, key):
+        try:
+            return Snowflake(key) in self._inner_dict
+        except (TypeError, ValueError):
+            return key in self._inner_dict  # keep returning bool
 
     def add(self, value: T):
         """Adds the given value to the cache, indexing it by ``value.id`` .
@@ -52,12 +59,16 @@ class SnowflakeCache(MutableMappingSnowflakeT, Generic[T]):
         """
         self._inner_dict[value.id] = value
 
-    # def pop(self, value: T):
-    #     """Removes the given value from the cache.
-    #
-    #     Args:
-    #         value (``T``): Value to be removed.
-    #     """
-    #     val_id = Snowflake(value.id)
-    #     if val_id in self:
-    #         del self[val_id]
+    def remove(self, value: T):
+        """Removes the given value from the cache.
+
+        Args:
+            value (``T``): The value to be removed.
+
+        Raises:
+            :exc:`LookupError`: If there was no such value in the cache.
+        """
+        for k, v in self.items():
+            if v == value:
+                del self[k]
+        raise LookupError("Value not found in the cache.")

@@ -7,7 +7,10 @@ from ..utils.string import process_token
 from .enums import HTTPDataType
 from .helpers import Response
 from .endpoint.endpoint_abc import Endpoint
-
+from serpcord.exceptions.httpexc import APIHttpStatusError, APIHttpBadRequestError, APIHttpNotFoundError, \
+    APIHttpRatelimitedError, APIHttpUnauthorizedError, APIHttpForbiddenError, APIHttpUserSideError, \
+    APIHttpInternalServerError, APIHttpBadGatewayError, APIHttpServiceUnavailableError, APIHttpGatewayTimeoutError, \
+    APIHttpServerSideError
 
 T = typing.TypeVar("T")
 
@@ -77,7 +80,11 @@ class Requester:
             endpoint.method.value.lower(), endpoint.url, headers=headers,
             data=endpoint.sent_data or None
         ) as resp:
-            resp.raise_for_status()
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                raise Requester._convert_http_error(e) from e
+
             content_type = resp.content_type
             parsed_resp: T = await endpoint.parse_response(self.client, resp)
 
@@ -97,3 +104,49 @@ class Requester:
             )
             endpoint.response = response
             return response
+
+    @staticmethod
+    def _convert_http_error(error: aiohttp.ClientResponseError) -> APIHttpStatusError:
+        """Converts a status-related response error to an instance of one of
+        :mod:`the library's custom HTTP Exceptions <serpcord.exceptions.httpexc>`.
+
+        Args:
+            error (:class:`aiohttp.ClientResponseError`): The error to be converted.
+
+        Returns:
+            :class:`~.APIHttpStatusError`: The converted error.
+        """
+        status = int(error.status)
+        request_info = error.request_info
+        history = error.history
+        headers = error.headers
+        message = error.message
+        init_args: typing.Any = dict(
+            request_info=request_info, history=history, status=status, headers=headers, message=message
+        )
+
+        if status == 400:
+            return APIHttpBadRequestError(**init_args)
+        if status == 404:
+            return APIHttpNotFoundError(**init_args)
+        if status == 429:
+            return APIHttpRatelimitedError(**init_args)
+        if status == 401:
+            return APIHttpUnauthorizedError(**init_args)
+        if status == 403:
+            return APIHttpForbiddenError(**init_args)
+        if 400 <= status < 500:  # not any of the above, but still in the 400s
+            return APIHttpUserSideError(**init_args)
+
+        if status == 500:
+            return APIHttpInternalServerError(**init_args)
+        if status == 502:
+            return APIHttpBadGatewayError(**init_args)
+        if status == 503:
+            return APIHttpServiceUnavailableError(**init_args)
+        if status == 504:
+            return APIHttpGatewayTimeoutError(**init_args)
+        if 500 <= status < 600:  # not any of the above, but still in 500s (there isn't 600+, but, for typing's sake...)
+            return APIHttpServerSideError(**init_args)
+
+        return APIHttpStatusError(**init_args)  # catch-all

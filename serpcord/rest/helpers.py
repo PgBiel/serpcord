@@ -30,8 +30,7 @@ class Response(Generic[T]):
         text_response (Optional[:class:`str`]): The response body as a string (if it was a text/json/... response).
         json_response (Optional[:class:`str`]): The response body as a Python object (if it was a JSON response).
         content_type (:class:`str`): The type of the response data.
-        parsed_response (Optional[``T``]): The raw response parsed as a certain model instance (``T``) by an Endpoint.
-            If no response was received (or expected) or parsing wasn't possible, this becomes ``None``.
+        parsed_response (``T``): The raw response parsed as a certain model instance (``T``) by an Endpoint.
     """
     def __init__(
         self,
@@ -40,11 +39,11 @@ class Response(Generic[T]):
         text_response: Optional[str] = None,
         json_response: Optional[Any] = None,
         content_type: str,
-        parsed_response: Optional[T] = None
+        parsed_response: T
     ):
         self.status: int = status
         self.raw_response: Optional[bytes] = raw_response
         self.text_response: Optional[str] = text_response
         self.json_response: Optional[Any] = json_response
-        self.parsed_response: Optional[T] = parsed_response
         self.content_type: str = content_type
+        self.parsed_response: T = parsed_response

@@ -1,4 +1,7 @@
-__all__ = ("_init_model_from_mapping_json_data", "parse_json_response", "parse_json_list_response")
+__all__ = (
+    "_init_model_from_mapping_json_data", "parse_json_response", "parse_json_list_response",
+    "compare_attributes", "_inject", "get_public_attrs"
+)
 
 import datetime
 import json
@@ -17,6 +20,11 @@ from typing import Optional, TypeVar, Mapping, Any, Type, Dict, Callable, List, 
 T = TypeVar("T", bound=JsonAPIModel[Mapping[str, Any]])
 D = TypeVar("D")
 V = TypeVar("V")
+V1 = TypeVar("V1")
+V2 = TypeVar("V2")
+K1 = TypeVar("K1")
+K2 = TypeVar("K2")
+TA = TypeVar("TA")
 
 if typing.TYPE_CHECKING:
     from serpcord.botclient import BotClient
@@ -310,7 +318,7 @@ def _safe_index(obj: Any, index: Any, *, default: D = None) -> Union[Any, D]:
     """
     try:
         return obj[index]
-    except TypeError:
+    except (TypeError, IndexError):
         return default
 
 
@@ -332,11 +340,51 @@ def _parse_datetime_from_json_iso_str(datestr: str) -> datetime.datetime:
         raise APIJsonParseException("Invalid ISO8601 datetime received.") from e
 
 
+def _inject(value: Union[Mapping[K1, V1], V],
+            inject_dict: Mapping[K2, V2]) -> Union[Dict[Union[K1, K2], Union[V1, V2]], V]:
+    """Merges `inject_dict` into `value`, if both are Mapping instances. Otherwise, returns `value`
+    unchanged.
+
+    Args:
+        value (Union[Mapping[K1, V1], V]): Mapping to be injected (or any non-Mapping type in order to return itself).
+        inject_dict (Mapping[K2, V2]): Mapping with the values that will be injected into `value`.
+
+    Returns:
+        Union[Dict[Union[K1, K2], Union[V1, V2]], V]: If both `value` and `inject_dict` are Mapping instances, they are
+        merged into a dict (with `inject_dict` keys overriding `value` keys whenever applicable). Otherwise (when one of
+        them isn't a Mapping), returns `value` unchanged.
+
+    Examples:
+        .. testsetup::
+
+            from typing import cast
+            from serpcord.utils.model import _inject
+        .. doctest::
+
+            >>> value = {"a": 5, "b": 6, "c": 7}
+            >>> inject_dict = {"b": 7, "d": 8}
+            >>> _inject(value, inject_dict)  # merges inject_dict into value
+            {'a': 5, 'b': 7, 'c': 7, 'd': 8}
+            >>> _inject(5, inject_dict)  # value isn't a Mapping, so it is returned unchanged
+            5
+            >>> _inject(value, 6)  # inject_dict isn't a Mapping, so 'value' is returned unchanged
+            {'a': 5, 'b': 6, 'c': 7}
+    """
+    if isinstance(value, collections.abc.Mapping) and isinstance(inject_dict, collections.abc.Mapping):
+        return typing.cast(Dict[Union[K1, K2], Union[V1, V2]], {
+            **value,
+            **inject_dict
+        })
+    else:
+        return typing.cast(V, value)
+
+
 def _default_converters(value: V,
                         *, client: "BotClient",
-                        annotated_type: Any, raise_not_implemented: bool = False) -> Union[Any, V]:
+                        annotated_type: Any, raise_not_implemented: bool = False,
+                        inject_dict: Optional[Mapping[Any, Any]] = None) -> Union[Any, V]:
     """Converts a value received through a JSON endpoint in the Discord API to expected types in a model's init
-    parameters (refer to :func:`init_model_from_mapping_json_data`.
+    parameters (refer to :func:`_init_model_from_mapping_json_data`.
 
     Args:
         value (``V``): Value to convert.
@@ -345,6 +393,9 @@ def _default_converters(value: V,
             said type, if possible.)
         raise_not_implemented (:class:`bool`, optional): If ``True``, raises :exc:`NotImplementedError` instead of
             returning the given value if none of the default converters were of use. (Defaults to ``False``)
+        inject_dict (Optional[Mapping], optional): A Mapping with key/values to inject to ``value'' (if it is also a
+            Mapping) - or to the models contained within it, if it is a model container - before running converters on
+            the model(s). Defaults to ``None`` (keep ``value'' as is).
 
     Returns:
         Union[Any, ``V``]: The converted value, or ``value`` if none of the default type converters were of use.
@@ -358,7 +409,12 @@ def _default_converters(value: V,
         and issubclass(second_generic_index, JsonAPIModel)
         and isinstance(value, collections.abc.Mapping)
     ):  # Mapping[str, JsonAPIModel] or subclasses  => need to parse dict values into JsonAPIModel
-        return {k_: second_generic_index._from_json_data(client, v_) for k_, v_ in value.items()}
+        return {
+            k_: second_generic_index._from_json_data(
+                client, _inject(v_, inject_dict) if inject_dict is not None else v_
+            )           # propagate injection to dict values (they are the models to be injected)
+            for k_, v_ in value.items()
+        }
     elif (  # parse lists of JsonAPIModel s
         _safe_issubclass(converted_type, typing.Iterable)
         and not _safe_issubclass(converted_type, str)
@@ -366,7 +422,10 @@ def _default_converters(value: V,
         and issubclass(first_generic_index, JsonAPIModel)
         and isinstance(value, collections.abc.Iterable)
     ):  # Iterable[JsonAPIModel]  => need to parse list values into JsonAPIModel
-        return [first_generic_index._from_json_data(client, x) for x in value]
+        return [
+            first_generic_index._from_json_data(client, _inject(x, inject_dict) if inject_dict is not None else x)
+            for x in value                              # propagate injection to list elements (they are the models)
+        ]
     elif (  # parse ISO8601 date string
         _safe_issubclass(converted_type, datetime.datetime)
         and isinstance(value, str)
@@ -377,7 +436,7 @@ def _default_converters(value: V,
         and issubclass(converted_type, JsonAPIModel)  # if necessary (This isn't exactly a typecheck
         and not isinstance(value, converted_type)  # - it just converts raw data to JsonAPIModel
     ):                                                 # when a subclass of it is expected.)
-        return converted_type._from_json_data(client, value)
+        return converted_type._from_json_data(client, _inject(value, inject_dict) if inject_dict is not None else value)
     else:  # not JsonAPIModel, not a list or dict of JSON Models, not datetime, so no default converters for this
         if raise_not_implemented:  # used to differentiate from other kinds of errors, if needed
             raise NotImplementedError(
@@ -386,21 +445,12 @@ def _default_converters(value: V,
         return value
 
 
-# inject (Optional[Mapping[:class:`str`, Mapping[:class:`str`, Any]]]): If specified, this dictionary maps
-#  post-rename received JSON keys (according to the given ``rename`` dict) to a dict that should be merged
-#  to the received dict for that parameter (if a dict was received for that key - otherwise no-op). (Defaults
-#  to ``None``, meaning no injection occurs.)
-#
-#  For example, a :class:``
-#  The `inject` parameter for :class:`~.Guild` would then look something like this::
-#
-#      _init_model_from_mapping_json_data(..., inject={"members": {"guild": } } )
-
 def _init_model_from_mapping_json_data(cls: Type[T], client: "BotClient", json_data: Mapping[str, Any], *,
                                        rename: Optional[Mapping[str, str]] = None,
                                        type_check_types: Union[bool, Iterable[Any]] = False,
                                        type_check_except: Optional[Iterable[Any]] = None,
                                        converters: Optional[Mapping[str, typing.Callable[[Any], Any]]] = None,
+                                       inject: Optional[Mapping[str, Mapping[str, Any]]] = None,
                                        extra_globals: Optional[Mapping[str, Any]] = None,
                                        extra_locals: Optional[Mapping[str, Any]] = None) -> T:
     """Generic function for instantiating :class:`~.JsonAPIModel` subclasses
@@ -442,10 +492,36 @@ def _init_model_from_mapping_json_data(cls: Type[T], client: "BotClient", json_d
                 of type ``Union[A, B, C]``, the check will accept values of type ``A``, ``B``, or ``C``, and error
                 for other types; for a parameter of type ``Optional[T]``, the check will accept either ``None`` or
                 a value of type ``T``, and error for other types.
+
         type_check_except (Optional[Iterable[:class:`type`]]): An optional list of type annotations that should be
             excluded from type checks. Useful if ``type_check_types=True`` is specified, but some should be excluded
             due to receiving special treatment (say, due to a special converter). Defaults to ``None`` (only the
             ``type_check_types`` is considered for type checks by default).
+        inject (Optional[Mapping[:class:`str`, Mapping[:class:`str`, Any]]]): If specified, this dictionary maps
+            post-rename received JSON keys (according to the given ``rename`` dict) to a dict that should be merged
+            to the received dict for that parameter (if a dict was received for that key - otherwise no-op). (Defaults
+            to ``None``, meaning no injection occurs.)
+
+            For example, a :class:`~.Message` would need to pass the received :class:`~.Guild` to the
+            :class:`~.GuildMember` instance it will hold.
+            The `inject` parameter for :class:`~.Message` would then look something like this::
+
+                _init_model_from_mapping_json_data(..., inject={"member": {"guild": guild} } )
+
+            And then the guild would be added as the "guild" property of the member parameter (if a dict was
+            received for the "member" parameter, which should occur for all messages in GuildChannels).
+
+            .. note::
+
+                If the parameter is a container of models (e.g. a dict containing dicts that will be parsed into models,
+                or a list of models), then the injection will be applied to the models contained within the received
+                value, not to the value itself (should it be a dict of models).
+
+            .. warning::
+
+                Specifying a custom converter for a parameter will nullify the effect of `inject` upon it. Write
+                your injection code inside the converter instead.
+
         extra_globals (Optional[Mapping[:class:`str`, Any]), optional): Extra global vars to consider when parsing
             ``cls.__init__`` 's annotations (if one or more are strings). Note that :class:`~.BotClient` is included
             by default. (Defaults to ``None``, meaning no extra global variables - other than :class:`~.BotClient` -
@@ -463,7 +539,6 @@ def _init_model_from_mapping_json_data(cls: Type[T], client: "BotClient", json_d
     Examples:
         .. testsetup:: *
 
-            from serpcord.utils.model import init_model_from_mapping_json_data
             token = "123"
         .. doctest::
 
@@ -542,6 +617,7 @@ got {type(json_data).__qualname__})."
                 converted_type_non_recursive = _typing_generic_converter(possible_json_model, recursive=False)
                 last_error: Optional[Exception] = None                           # to (A, B, ...); Optional[T] to T
                 if not custom_converting:  # run default conversions
+                    inject_dict = inject.get(renamed, None) if inject is not None else None
                     if isinstance(converted_type_non_recursive, tuple):  # 2+ possibilities for param (Union[A,B,...])
                         has_non_jsonapimodel: bool = False
                         for possible_type in converted_type_non_recursive:  # -> go thru each possible type & attempt to
@@ -549,7 +625,7 @@ got {type(json_data).__qualname__})."
                             try:
                                 set_value = _default_converters(
                                     v, client=client, annotated_type=possible_type,
-                                    raise_not_implemented=True
+                                    raise_not_implemented=True, inject_dict=inject_dict
                                 )
                                 break
                             except NotImplementedError:  # no default converters were applied for the given type
@@ -578,7 +654,9 @@ got {type(json_data).__qualname__})."
                                 else:
                                     raise json_error
                     else:
-                        set_value = _default_converters(v, client=client, annotated_type=possible_json_model)
+                        set_value = _default_converters(
+                            v, client=client, annotated_type=possible_json_model, inject_dict=inject_dict
+                        )
 
             if (  # begin typechecking.
                 pjm_is_type_or_gen_alias
@@ -687,3 +765,110 @@ async def parse_json_list_response(
     if not isinstance(resp, collections.abc.Iterable):
         raise APIJsonParsedTypeMismatchException("JSON received wasn't a list.")
     return [cls._from_json_data(client, x) for x in resp]
+
+
+def compare_attributes(obj1: Any, obj2: Any, *, ignore_simple_underscore: bool = False) -> bool:
+    """Compares all attributes of two objects, except for methods, __dunderattrs__, and, optionally, _private_attrs.
+
+    Args:
+        obj1 (Any): First object to compare.
+        obj2 (Any): Second object to compare.
+        ignore_simple_underscore (:class:`bool`, optional): If ``True``, attributes starting with a single `_` won't be
+            compared. Defaults to ``False`` (compares attributes starting with a single `_`, but not with two).
+
+    Returns:
+        :class:`bool`: ``True`` if obj1.X == obj2.X for all X (according to the criteria at the function description);
+        ``False`` otherwise.
+
+    Examples:
+        .. testsetup:: *
+
+            from serpcord.utils.model import compare_attributes
+        .. doctest::
+
+            >>> class A:
+            ...     pass
+            >>> a, b, c = A(), A(), A()
+            >>> a.x = 5; a.y = 6; a.z = 7
+            >>> b.x = 5; b.y = 7; b.z = 7
+            >>> c.x = 5; c.y = 6; c.z = 7
+            >>> compare_attributes(a, b)  # they differ in one attribute (y)
+            False
+            >>> compare_attributes(a, c)  # all attributes are equal
+            True
+    """
+    for k1, v1 in inspect.getmembers(obj1):
+        if k1.startswith("__") or (not ignore_simple_underscore and k1.startswith("_")):
+            continue
+        is_v1_method = inspect.ismethod(v1)
+        for k2, v2 in filter(lambda k: k and k[0] == k1, inspect.getmembers(obj2)):
+            if is_v1_method != inspect.ismethod(v2):  # one is a method and the other isn't?
+                return False
+            if not is_v1_method and v1 != v2:
+                return False
+    return True
+
+
+def get_public_attrs(
+    obj: Any,
+    *, include_single_underscore: bool = False,
+    include_methods: bool = False,
+    include_also: Optional[Iterable[str]] = None
+) -> Dict[str, Any]:
+    """Returns a dict that maps attribute name to attribute value for a Python object.
+    Note that it only considers PUBLIC attributes (i.e., those without leading underscores). Refer to options below
+    for further customization of output.
+
+    Args:
+        obj (Any): Python object whose attributes should be fetched.
+        include_single_underscore (:class:`bool`, optional): If ``True``, attributes with a single (but not double)
+            leading underscore are also included. Defaults to ``False`` (only include attributes without leading
+            underscores in their names).
+        include_methods (:class:`bool`, optional): If ``True``, methods are also included in the generated dict.
+            Defaults to ``False`` (only include non-method attributes).
+        include_also (Optional[Iterable[:class:`str`]], optional): List of extra (private) attributes to include in
+            the final dict, IF `obj` has them. Defaults to ``None`` (only include attributes that follow the rules
+            above).
+
+    Returns:
+        Dict[:class:`str`, Any]: The resulting dict mapping attribute names to attribute values for `obj` 's public
+        attributes (following the rules above).
+
+    Examples:
+        .. testsetup::
+
+            from serpcord.utils.model import get_public_attrs
+        .. doctest::
+
+            >>> class A:
+            ...     def __init__(self, a, b, c):
+            ...         self.a = a
+            ...         self.b = b
+            ...         self.c = c
+            ...         self._d = a + b
+            ...         self._e = b + c
+            ...     def sum_a_c(self):
+            ...         return self.a + self.c
+            >>> obj = A(1, 2, 3)
+            >>> get_public_attrs(obj)
+            {'a': 1, 'b': 2, 'c': 3}
+            >>> get_public_attrs(obj, include_single_underscore=True)
+            {'_d': 3, '_e': 5, 'a': 1, 'b': 2, 'c': 3}
+            >>> get_public_attrs(obj, include_also=["_e"])
+            {'_e': 5, 'a': 1, 'b': 2, 'c': 3}
+            >>> get_public_attrs(obj, include_methods=True)
+            {'a': 1, 'b': 2, 'c': 3, 'sum_a_c': <bound method A.sum_a_c of <A object at ...>>}
+    """
+    return {
+        k: v
+        for k, v in inspect.getmembers(obj)
+        if (
+            (include_also is not None and hasattr(include_also, "__contains__") and k in include_also)
+            or (
+                k and isinstance(k, str) and not k.startswith("__") and (
+                 include_single_underscore or not k.startswith("_")
+                )
+                and (include_methods or not inspect.ismethod(v))
+            )
+        )
+    }

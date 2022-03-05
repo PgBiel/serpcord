@@ -8,12 +8,13 @@ import aiohttp
 
 from ..helpers import Response
 from .endpoint_abc import GETEndpoint, PATCHEndpoint
+from serpcord.models.snowflake import Snowflake
 from serpcord.utils.typeutils import SERPCORD_DEFAULT, OrDefault, OptionalOrDefault
 
 
 if typing.TYPE_CHECKING:
     from serpcord.botclient import BotClient
-    from serpcord.models.user import BotUser
+    from serpcord.models.user import BotUser, User
 
 
 class GetCurrentUserEndpoint(GETEndpoint["BotUser"]):
@@ -40,6 +41,36 @@ class GetCurrentUserEndpoint(GETEndpoint["BotUser"]):
         """
         from serpcord.models.user import BotUser
         return await BotUser._from_response(client, response)
+
+
+class GetUserEndpoint(GETEndpoint["User"]):
+    """API Endpoint for retrieving a user. A GET to
+    ``[BASE_API_URL]/users/:user_id``.
+
+    Args:
+        user_id (Union[:class:`int`, :class:`~.Snowflake`): ID of the user to be fetched.
+    """
+    response: Optional[Response["User"]]  #: Response object containing the retrieved user (if successful).
+
+    def __init__(self, user_id: Union[int, Snowflake]):
+        super().__init__(("users", str(int(user_id))), None)
+
+    async def parse_response(self, client: "BotClient", response: aiohttp.ClientResponse) -> "User":
+        """Returns the current running bot's :class:`~.BotUser` by parsing response data received from Discord.
+
+        Args:
+            client (:class:`~.BotClient`): The bot's active client instance.
+            response (:class:`aiohttp.ClientResponse`): Response data received from Discord to parse.
+
+        Returns:
+            :class:`~.BotUser`: The :class:`~.BotUser` instance that resulted from parsing the response data, which
+            corresponds to the current user (i.e. the bot's user).
+
+        See Also:
+            :meth:`Endpoint.parse_response() <.Endpoint.parse_response>`
+        """
+        from serpcord.models.user import User
+        return await User._from_response(client, response)
 
 
 class PatchCurrentUserEndpoint(PATCHEndpoint["BotUser"]):

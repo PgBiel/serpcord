@@ -1,7 +1,7 @@
-from .serpcordexc import SerpcordException
+from .serpcordexc import APIRequestException
 
 
-class APIDataParseException(SerpcordException):
+class APIDataParseException(APIRequestException):
     """Indicates certain data received from Discord could not be correctly parsed, due to being corrupt, invalid,
     or unexpected (say, due to a sudden API version change)."""
     pass

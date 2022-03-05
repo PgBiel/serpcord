@@ -77,11 +77,20 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
                 :attr:`UserPremiumType.NONE <.UserPremiumType.NONE>`).
 
         public_flags (:class:`~.UserFlags`): The User's public flags. (Refer to :class:`~.UserFlags` for a list.)
+
+    .. testsetup:: *
+
+        from serpcord.models.user import User
+        from serpcord.models.snowflake import Snowflake
+        from serpcord.models.enums import UserFlags, UserPremiumType, Locale
+        from serpcord.botclient import BotClient
+        client = BotClient("123")
     """
     __slots__ = (
         "client", "username", "discriminator", "avatar_hash", "is_bot", "is_system", "is_mfa_enabled",
         "banner_hash", "accent_color_int", "locale", "is_verified", "email", "flags", "premium_type", "public_flags"
     )
+    # id: Snowflake
 
     def __init__(self, client: "BotClient", userid: Snowflake,
                  *, username: str, discriminator: str,
@@ -119,6 +128,28 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
 
         Raises:
             :exc:`APIJsonParsedTypeMismatchException`: If the given data wasn't valid user data.
+
+        Examples:
+
+            .. doctest::
+
+                >>> from serpcord.utils.model import compare_attributes
+                >>> user_data = {
+                ...     "id": 1234, "username": "The User", "discriminator": "5678", "avatar": "abcdefg123",
+                ...     "bot": False, "mfa_enabled": True, "locale": "zh-CN", "email": "test@test.test",
+                ...     "flags": (1 << 2) | (1 << 18), "premium_type": 1
+                ... }
+                >>> user = User._from_json_data(client, user_data)
+                >>> compare_attributes(  # check if the users are equal considering every attribute
+                ...     user,
+                ...     User(
+                ...         client, Snowflake(1234), username="The User", discriminator="5678",
+                ...         avatar_hash="abcdefg123", is_bot=False, is_mfa_enabled=True, locale=Locale.ZH_CN,
+                ...         email="test@test.test", flags=UserFlags.HYPESQUAD | UserFlags.CERTIFIED_MODERATOR,
+                ...         premium_type=UserPremiumType.NITRO_CLASSIC
+                ...     )
+                ... )
+                True
         """
         expected_keys = [
             "id", "username", "discriminator", "avatar", "bot", "system", "mfa_enabled", "banner", "accent_color",
@@ -141,7 +172,7 @@ class User(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
             "client": client
         }
         try:
-            return cls(**dict(
+            return cls(client, **dict(
                 (
                     key_map.get(k, k),
                     typing.cast(Type[JsonAPIModel], v_)._from_json_data(client, v)

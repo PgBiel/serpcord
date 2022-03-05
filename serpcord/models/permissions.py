@@ -112,6 +112,14 @@ class Role(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
             restricted to members with the :attr:`~.PermissionFlags.MENTION_EVERYONE` permission.
         tags (Optional[:class:`RoleTags`]): Special tags regarding this role (refer to :class:`RoleTags` for further
             info), if any are present; ``None`` otherwise (default).
+
+    .. testsetup::
+
+        from serpcord.models.permissions import Role
+        from serpcord.models.enums import PermissionFlags
+        from serpcord.models.snowflake import Snowflake
+        from serpcord.botclient import BotClient
+        client = BotClient("123")
     """
     __slots__ = (
         "client", "name", "color_int", "is_hoisted", "icon_hash", "unicode_emoji", "position", "permissions",
@@ -145,6 +153,34 @@ class Role(JsonAPIModel[Mapping[str, Any]], Updatable, HasId):
 
         See Also:
             :meth:`JsonAPIModel.from_json_data`
+
+        Examples:
+            .. doctest::
+
+                >>> from serpcord.utils.model import compare_attributes
+                >>> role_data = {
+                ...   "id": "41771983423143936",
+                ...   "name": "WE DEM BOYZZ!!!!!!",
+                ...   "color": 3447003,
+                ...   "hoist": True,
+                ...   "icon": "cf3ced8600b777c9486c6d8d84fb4327",
+                ...   "unicode_emoji": None,
+                ...   "position": 1,
+                ...   "permissions": "66321471",
+                ...   "managed": False,
+                ...   "mentionable": False
+                ... }
+                >>> role = Role._from_json_data(client, role_data)
+                >>> compare_attributes(
+                ...     role,
+                ...     Role(
+                ...         client, Snowflake(41771983423143936), name="WE DEM BOYZZ!!!!!!",
+                ...         color_int=3447003, is_hoisted=True, icon_hash="cf3ced8600b777c9486c6d8d84fb4327",
+                ...         unicode_emoji=None, position=1, permissions=PermissionFlags(66321471),
+                ...         is_managed=False, is_mentionable=False
+                ...     )
+                ... )
+                True
         """
         return _init_model_from_mapping_json_data(cls, client, json_data, rename=dict(
             id="roleid", color="color_int", hoist="is_hoisted", icon="icon_hash",
